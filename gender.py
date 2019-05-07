@@ -71,13 +71,13 @@ test_transform = transforms.Compose([
 print('Loading images...')
 train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
 test_data = dsets.ImageFolder(root='UTKFace/test',transform =test_transform)
-NUM_TRAIN = 20000
-NUM_TEST = 2000
+
+batch_size = 50
 
 train_loader = torch.utils.data.DataLoader(train_data,
-	batch_size=100,sampler=sampler.SubsetRandomSampler(range(NUM_TRAIN//2)))
+	batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_data,
-	batch_size=100,shuffle=False)
+	batch_size=batch_size,shuffle=False)
 
 NUM_CLASS = len(train_loader.dataset.classes)
 print("Number of Training Classes: {}".format(NUM_CLASS))
