@@ -41,20 +41,6 @@ def save_checkpoint(state,is_best,file_name = 'checkpoint.pth.tar'):
 	if is_best:
 		shutil.copyfile(file_name,'model_best.pth.tar')
 
-# No transform for now
-# train_transform = transforms.Compose([
-# 	transforms.Scale(256),
-# 	transforms.RandomCrop(227),
-# 	transforms.RandomHorizontalFlip(),
-# 	transforms.ToTensor()
-# 	])
-#
-# test_transform = transforms.Compose([
-# 	transforms.Scale(256),
-# 	transforms.CenterCrop(227),
-# 	transforms.ToTensor()
-# 	])
-
 train_transform = transforms.Compose([
 	transforms.Resize(256),
 	transforms.RandomCrop(227),
@@ -75,9 +61,9 @@ NUM_TRAIN = 20000
 NUM_TEST = 2000
 
 train_loader = torch.utils.data.DataLoader(train_data,
-	batch_size=100,sampler=sampler.SubsetRandomSampler(range(NUM_TRAIN//2)))
+	batch_size=50,shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_data,
-	batch_size=100,shuffle=False)
+	batch_size=50,shuffle=False)
 
 NUM_CLASS = len(train_loader.dataset.classes)
 print("Number of Training Classes: {}".format(NUM_CLASS))
