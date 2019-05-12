@@ -41,20 +41,6 @@ def save_checkpoint(state,is_best,file_name = 'checkpoint.pth.tar'):
 	if is_best:
 		shutil.copyfile(file_name,'model_best.pth.tar')
 
-# No transform for now
-# train_transform = transforms.Compose([
-# 	transforms.Scale(256),
-# 	transforms.RandomCrop(227),
-# 	transforms.RandomHorizontalFlip(),
-# 	transforms.ToTensor()
-# 	])
-#
-# test_transform = transforms.Compose([
-# 	transforms.Scale(256),
-# 	transforms.CenterCrop(227),
-# 	transforms.ToTensor()
-# 	])
-
 train_transform = transforms.Compose([
 	transforms.Resize(256),
 	transforms.RandomCrop(227),
