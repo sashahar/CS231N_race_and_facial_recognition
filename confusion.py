@@ -12,29 +12,61 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import shutil
 import numpy as np
-import gender
+#from gender import CNN
 
 use_gpu = torch.cuda.is_available()
 
-def confusion_matrix(cnn,data_loader):
-	#four groups: white women, non-white women, white men, non-white men
-	#for each group
-	num_sample = np.zeros(4)
 
+class CNN(nn.Module):
+	def __init__(self):
+		super(CNN,self).__init__()
+		self.layer1 = nn.Sequential(
+			nn.Conv2d(3,96,kernel_size=7,stride=4),
+			nn.BatchNorm2d(96),
+			nn.ReLU(),
+			nn.MaxPool2d(kernel_size=3,stride=2))
+		self.layer2 = nn.Sequential(
+			nn.Conv2d(96,256,kernel_size=5,padding=2),
+			nn.BatchNorm2d(256),
+			nn.ReLU(),
+			nn.MaxPool2d(kernel_size=3,stride=2))
+		self.layer3 = nn.Sequential(
+			nn.Conv2d(256,384,kernel_size=3,padding=1),
+			nn.BatchNorm2d(384),
+			nn.ReLU(),
+			nn.MaxPool2d(kernel_size=3,stride=2))
+		self.fc1 = nn.Linear(384*6*6,512)
+		self.fc2 = nn.Linear(512,512)
+		self.fc3 = nn.Linear(512,2)
+
+	def forward(self,x):
+		out = self.layer1(x)
+		out = self.layer2(out)
+		out = self.layer3(out)
+		out = out.view(out.size(0),-1)
+		#print out.size()
+		out = F.dropout(F.relu(self.fc1(out)))
+		out = F.dropout(F.relu(self.fc2(out)))
+		out = self.fc3(out)
+
+		return out
+
+def confusion_matrix(cnn,data_loader):
+	preds = np.array([])
+	correct = np.array([])
 	num_correct,num_sample = 0, 0
-	index = 0
 	for images,labels in data_loader:
-		if index < 10:
-			print(labels)
 		images = Variable(images).cuda()
 		labels = labels.cuda()
 		outputs = cnn(images)
-
 		_,pred = torch.max(outputs.data,1)
 		num_sample += labels.size(0)
 		num_correct += (pred == labels).sum()
-	print("WHITE WOMEN")
-	print("WHITE MEN")
+		correct = np.append(correct, labels.cpu().numpy())
+		preds = np.append(preds, pred.cpu().numpy())
+		print(len(correct))
+		print(len(preds))
+	np.savetxt("predictions.csv", (preds, correct), delimiter=',')
 
 test_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -43,13 +75,18 @@ test_transform = transforms.Compose([
 	])
 
 print('Loading images...')
-val_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
-for img in val_data:
-	print(img)
+batch_size = 50
+val_data = dsets.ImageFolder(root='UTKFace/val', transform =test_transform)
+# filenames = []
+# for i in range(len(val_data)):
+#  	sample = val_data[i]
+#  	print(i, sample[0].size(), sample[1])
 val_loader = torch.utils.data.DataLoader(val_data,
 	batch_size=batch_size,shuffle=False)
 
 cnn = CNN()
+if use_gpu:
+	cnn.cuda()
 optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
 SAVED_MODEL_PATH = 'model_best.pth.tar'
@@ -57,6 +94,6 @@ checkpoint = torch.load(SAVED_MODEL_PATH)
 cnn.load_state_dict(checkpoint['state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer'])
 epoch = checkpoint['epoch']
-best_val_acc = checkpoint[best_val_acc]
+best_val_acc = checkpoint['best_val_acc']
 
-val_acc = check_acc(cnn,val_loader)
+val_acc = confusion_matrix(cnn,val_loader) #val_data)
