@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import shutil
 import numpy as np
+import os
 #from gender import CNN
 
 use_gpu = torch.cuda.is_available()
@@ -66,7 +67,8 @@ def confusion_matrix(cnn,data_loader, filenames):
 		preds = np.append(preds, pred.cpu().numpy())
 		print(len(correct))
 		print(len(preds))
-	np.savetxt("predictions.csv", (filenames, correct, preds), delimiter=',')
+	np.savetxt("predictions.csv", (filenames, correct, preds), fmt = '%s', delimiter=',')
+
 
 test_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -78,13 +80,11 @@ print('Loading images...')
 batch_size = 50
 root='UTKFace/val'
 filenames = []
-for male_file in os.listdir(os.path.join(root, "male"):
-	print(male_file)
-	filenames.append(male_file)
-for female_file in os.listdir(os.path.join(root, "female"):
-	print(female_file)
-	filenames.append(female_file)
-
+for male_file in os.listdir(os.path.join(root, "male")):
+	filenames.append(str(male_file))
+for female_file in os.listdir(os.path.join(root, "female")):
+	filenames.append(str(female_file))
+print(len(filenames))
 val_data = dsets.ImageFolder(root=root, transform =test_transform)
 
 val_loader = torch.utils.data.DataLoader(val_data,
