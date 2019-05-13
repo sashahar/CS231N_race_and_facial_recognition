@@ -80,10 +80,10 @@ print('Loading images...')
 batch_size = 50
 root='UTKFace/val'
 filenames = []
-for male_file in os.listdir(os.path.join(root, "male")):
-	filenames.append(str(male_file))
 for female_file in os.listdir(os.path.join(root, "female")):
 	filenames.append(str(female_file))
+for male_file in os.listdir(os.path.join(root, "male")):
+	filenames.append(str(male_file))
 print(len(filenames))
 val_data = dsets.ImageFolder(root=root, transform =test_transform)
 
