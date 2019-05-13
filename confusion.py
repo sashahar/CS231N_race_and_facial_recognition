@@ -51,7 +51,7 @@ class CNN(nn.Module):
 
 		return out
 
-def confusion_matrix(cnn,data_loader):
+def confusion_matrix(cnn,data_loader, filenames):
 	preds = np.array([])
 	correct = np.array([])
 	num_correct,num_sample = 0, 0
@@ -66,7 +66,7 @@ def confusion_matrix(cnn,data_loader):
 		preds = np.append(preds, pred.cpu().numpy())
 		print(len(correct))
 		print(len(preds))
-	np.savetxt("predictions.csv", (preds, correct), delimiter=',')
+	np.savetxt("predictions.csv", (filenames, correct, preds), delimiter=',')
 
 test_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -76,11 +76,17 @@ test_transform = transforms.Compose([
 
 print('Loading images...')
 batch_size = 50
-val_data = dsets.ImageFolder(root='UTKFace/val', transform =test_transform)
-# filenames = []
-# for i in range(len(val_data)):
-#  	sample = val_data[i]
-#  	print(i, sample[0].size(), sample[1])
+root='UTKFace/val'
+filenames = []
+for male_file in os.listdir(os.path.join(root, "male"):
+	print(male_file)
+	filenames.append(male_file)
+for female_file in os.listdir(os.path.join(root, "female"):
+	print(female_file)
+	filenames.append(female_file)
+
+val_data = dsets.ImageFolder(root=root, transform =test_transform)
+
 val_loader = torch.utils.data.DataLoader(val_data,
 	batch_size=batch_size,shuffle=False)
 
@@ -96,4 +102,4 @@ optimizer.load_state_dict(checkpoint['optimizer'])
 epoch = checkpoint['epoch']
 best_val_acc = checkpoint['best_val_acc']
 
-val_acc = confusion_matrix(cnn,val_loader) #val_data)
+val_acc = confusion_matrix(cnn,val_loader, np.array(filenames)) #val_data)
