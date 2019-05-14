@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.datasets as dsets
 import torchvision.transforms as transforms
+from  torchvision.models import resnet18
 from torch.utils.data import sampler
 from torch.autograd import Variable
 
@@ -66,17 +67,17 @@ shuffle_dataset = True
 random_seed= 42
 
 # Creating data indices for training and validation splits:
-dataset_size = len(dataset)
-indices = list(range(dataset_size))
-split = int(np.floor(validation_split * dataset_size))
-if shuffle_dataset :
-    np.random.seed(random_seed)
-    np.random.shuffle(indices)
-train_indices, val_indices = indices[split:], indices[:split]
+#dataset_size = len(dataset)
+#indices = list(range(dataset_size))
+#split = int(np.floor(validation_split * dataset_size))
+#if shuffle_dataset :
+    #np.random.seed(random_seed)
+    #np.random.shuffle(indices)
+#train_indices, val_indices = indices[split:], indices[:split]
 
 # Creating PT data samplers and loaders:
-train_sampler = SubsetRandomSampler(train_indices)
-valid_sampler = SubsetRandomSampler(val_indices)
+#train_sampler = SubsetRandomSampler(train_indices)
+#valid_sampler = SubsetRandomSampler(val_indices)
 
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True)
@@ -88,8 +89,8 @@ print("Number of Training Classes: {}".format(NUM_CLASS))
 
 
 
-model = torchvision.models.resnet18(pretrained=True)
-for param in model_conv.parameters():
+model = resnet18(pretrained=True)
+for param in model.parameters():
     param.requires_grad = False
 
 # Parameters of newly constructed modules have requires_grad=True by default
@@ -103,17 +104,10 @@ criterion = nn.CrossEntropyLoss()
 
 # Observe that only parameters of final layer are being optimized as
 # opposed to before.
-optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.SGD(model.fc.parameters(), lr=0.001, momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)
-
-# Observe that only parameters of final layer are being optimized as
-# opposed to before.
-optimizer = optim.SGD(model.fc.parameters(), lr=0.001, momentum=0.9)
-
-# Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+#exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 loss_history = []
 num_epochs = 30
