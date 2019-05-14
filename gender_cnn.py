@@ -15,6 +15,23 @@ import numpy as np
 
 use_gpu = torch.cuda.is_available()
 
+def confusion_matrix(cnn,data_loader):
+	#four groups: white women, non-white women, white men, non-white men
+	#for each group
+	num_sample = np.zeros(4)
+
+	num_correct,num_sample = 0, 0
+	for images,labels in data_loader:
+		images = Variable(images).cuda()
+		labels = labels.cuda()
+		outputs = cnn(images)
+
+		_,pred = torch.max(outputs.data,1)
+		num_sample += labels.size(0)
+		num_correct += (pred == labels).sum()
+	print("WHITE WOMEN")
+	print("WHITE MEN")
+
 def check_acc(cnn,data_loader):
 	num_correct,num_sample = 0, 0
 	for images,labels in data_loader:
@@ -56,9 +73,25 @@ test_transform = transforms.Compose([
 
 print('Loading images...')
 train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
-test_data = dsets.ImageFolder(root='UTKFace/test',transform =test_transform)
+test_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
 
 batch_size = 50
+validation_split = .2
+shuffle_dataset = True
+random_seed= 42
+
+# Creating data indices for training and validation splits:
+dataset_size = len(dataset)
+indices = list(range(dataset_size))
+split = int(np.floor(validation_split * dataset_size))
+if shuffle_dataset :
+    np.random.seed(random_seed)
+    np.random.shuffle(indices)
+train_indices, val_indices = indices[split:], indices[:split]
+
+# Creating PT data samplers and loaders:
+train_sampler = SubsetRandomSampler(train_indices)
+valid_sampler = SubsetRandomSampler(val_indices)
 
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True)
