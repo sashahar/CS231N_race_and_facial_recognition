@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.datasets as dsets
 import torchvision.transforms as transforms
+import torchvision.models as models
 from torch.utils.data import sampler
 from torch.autograd import Variable
 
@@ -16,6 +17,8 @@ import os
 #from gender import CNN
 
 use_gpu = torch.cuda.is_available()
+
+model = "vgg"
 
 
 class CNN(nn.Module):
@@ -51,14 +54,17 @@ class CNN(nn.Module):
 		out = self.fc3(out)
 
 		return out
+    
+
 
 def confusion_matrix(cnn,data_loader, filenames):
 	preds = np.array([])
 	correct = np.array([])
 	num_correct,num_sample = 0, 0
 	for images,labels in data_loader:
-		images = Variable(images).cuda()
-		labels = labels.cuda()
+		if use_gpu:
+			images = Variable(images).cuda()
+			labels = labels.cuda()
 		outputs = cnn(images)
 		_,pred = torch.max(outputs.data,1)
 		num_sample += labels.size(0)
@@ -67,7 +73,8 @@ def confusion_matrix(cnn,data_loader, filenames):
 		preds = np.append(preds, pred.cpu().numpy())
 		print(len(correct))
 		print(len(preds))
-	np.savetxt("predictions.csv", (filenames, correct, preds), fmt = '%s', delimiter=',')
+		print("accuracy: ", sum(preds==correct)/len(correct))
+	np.savetxt("predictions_vgg.csv", (filenames, correct, preds), fmt = '%s', delimiter=',')
 
 
 test_transform = transforms.Compose([
@@ -90,16 +97,30 @@ val_data = dsets.ImageFolder(root=root, transform =test_transform)
 val_loader = torch.utils.data.DataLoader(val_data,
 	batch_size=batch_size,shuffle=False)
 
-cnn = CNN()
-if use_gpu:
-	cnn.cuda()
-optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
+# cnn = CNN()
+# if use_gpu:
+# 	cnn.cuda()
 
-SAVED_MODEL_PATH = 'model_best.pth.tar'
+NUM_CLASSES = 2
+vgg16 = models.vgg16(pretrained = True)
+# Newly created modules have require_grad=True by default
+num_features = vgg16.classifier[6].in_features
+features = list(vgg16.classifier.children())[:-1] # Remove last layer
+features.extend([nn.Linear(num_features, NUM_CLASSES)]) # Add our layer with 4 outputs
+vgg16.classifier = nn.Sequential(*features) # Replace the model classifier
+
+if use_gpu:
+    vgg16.cuda()
+
+optimizer = torch.optim.SGD(vgg16.parameters(),lr=0.001,momentum=0.9)
+
+SAVED_MODEL_PATH = 'vgg_model_best.pth.tar'
 checkpoint = torch.load(SAVED_MODEL_PATH)
-cnn.load_state_dict(checkpoint['state_dict'])
+vgg16.load_state_dict(checkpoint['state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer'])
 epoch = checkpoint['epoch']
 best_val_acc = checkpoint['best_val_acc']
 
-val_acc = confusion_matrix(cnn,val_loader, np.array(filenames)) #val_data)
+print("best val_acc = ", best_val_acc)
+
+val_acc = confusion_matrix(vgg16,val_loader, np.array(filenames)) #val_data)
