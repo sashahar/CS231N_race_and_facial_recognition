@@ -53,10 +53,10 @@ def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 	plt.xlabel('Number of epochs')
 	plt.legend()
 	plt.savefig('acc_recode.png')
-def save_checkpoint(state,is_best,file_name = 'checkpoint.pth.tar'):
+def save_checkpoint(state,is_best,file_name = 'cnn_checkpoint.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
-		shutil.copyfile(file_name,'model_best.pth.tar')
+		shutil.copyfile(file_name,'cnn_model_best.pth.tar')
 
 train_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -80,18 +80,18 @@ validation_split = .2
 shuffle_dataset = True
 random_seed= 42
 
-# Creating data indices for training and validation splits:
-dataset_size = len(dataset)
-indices = list(range(dataset_size))
-split = int(np.floor(validation_split * dataset_size))
-if shuffle_dataset :
-    np.random.seed(random_seed)
-    np.random.shuffle(indices)
-train_indices, val_indices = indices[split:], indices[:split]
+# # Creating data indices for training and validation splits:
+# dataset_size = len(dataset)
+# indices = list(range(dataset_size))
+# split = int(np.floor(validation_split * dataset_size))
+# if shuffle_dataset :
+#     np.random.seed(random_seed)
+#     np.random.shuffle(indices)
+# train_indices, val_indices = indices[split:], indices[:split]
 
 # Creating PT data samplers and loaders:
-train_sampler = SubsetRandomSampler(train_indices)
-valid_sampler = SubsetRandomSampler(val_indices)
+# train_sampler = SubsetRandomSampler(train_indices)
+# valid_sampler = SubsetRandomSampler(val_indices)
 
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True)
@@ -145,7 +145,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
 loss_history = []
-num_epochs = 100
+num_epochs = 30
 train_acc_history = []
 val_acc_history = []
 epoch_history = []
