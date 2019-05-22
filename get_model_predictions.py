@@ -19,8 +19,8 @@ import os
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
-model = "cnn"
-outfile = "predictions_cnn_v2.csv"
+model = "vgg"
+outfile = "predictions_vgg_v2.csv"
 
 
 class CNN(nn.Module):
@@ -134,7 +134,7 @@ elif model == "vgg":
 
     optimizer = torch.optim.SGD(vgg16.parameters(),lr=0.001,momentum=0.9)
 
-    SAVED_MODEL_PATH = 'cnn_model_best.pth.tar'
+    SAVED_MODEL_PATH = 'vgg_checkpoint.pth.tar'
     checkpoint = torch.load(SAVED_MODEL_PATH)
     vgg16.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
