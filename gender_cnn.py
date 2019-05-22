@@ -144,61 +144,64 @@ if use_gpu:
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
-loss_history = []
-num_epochs = 2
-train_acc_history = []
-val_acc_history = []
-epoch_history = []
-learning_rate = 0.001
-best_val_acc = 0.0
+def train_model(cnn, criterion, optimizer, num_epochs = 100):
+
+    loss_history = []
+    train_acc_history = []
+    val_acc_history = []
+    epoch_history = []
+    learning_rate = 0.001
+    best_val_acc = 0.0
 
 
-for epoch in range(num_epochs):
-	optimizer = torch.optim.SGD(cnn.parameters(),lr=learning_rate,momentum=0.9)
-	print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
-	print('Learning Rate for this epoch: {}'.format(learning_rate))
+    for epoch in range(num_epochs):
+        optimizer = torch.optim.SGD(cnn.parameters(),lr=learning_rate,momentum=0.9)
+        print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
+        print('Learning Rate for this epoch: {}'.format(learning_rate))
 
-	for i,(images,labels) in enumerate(train_loader):
-		images = Variable(images)
-		labels = Variable(labels)
-		if use_gpu:
-			images,labels = images.cuda(),labels.cuda()
+        for i,(images,labels) in enumerate(train_loader):
+            images = Variable(images)
+            labels = Variable(labels)
+            if use_gpu:
+                images,labels = images.cuda(),labels.cuda()
 
-		pred_labels = cnn(images)
-		loss = criterion(pred_labels,labels)
-		optimizer.zero_grad()
-		loss.backward()
-		optimizer.step()
+            pred_labels = cnn(images)
+            loss = criterion(pred_labels,labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-		if (i+1) % 5 == 0:
-			print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
-            	%(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
-    if epoch % 10 == 0:
-        learning_rate = learning_rate * 0.9
+            if (i+1) % 5 == 0:
+                print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
+                    %(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
+        if epoch % 10 == 0:
+            learning_rate = learning_rate * 0.9
 
-	if epoch % 5 ==0 or epoch == num_epochs-1:
-		train_acc = check_acc(cnn,train_loader)
-		train_acc_history.append(train_acc)
-		train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
-		print(train_msg)
-		epoch_history.append(train_msg)
+        if epoch % 5 ==0 or epoch == num_epochs-1:
+            train_acc = check_acc(cnn,train_loader)
+            train_acc_history.append(train_acc)
+            train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+            print(train_msg)
+            epoch_history.append(train_msg)
 
-		val_acc = check_acc(cnn,test_loader)
-		val_acc_history.append(val_acc)
-		val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
-		print(val_msg)
-		epoch_history.append(val_msg)
-		#plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
+            val_acc = check_acc(cnn,test_loader)
+            val_acc_history.append(val_acc)
+            val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
+            print(val_msg)
+            epoch_history.append(val_msg)
+            #plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
 
-		is_best = val_acc > best_val_acc
-		best_val_acc = max(val_acc,best_val_acc)
-		save_checkpoint(
-			{'epoch':epoch+1,
-			'state_dict':cnn.state_dict(),
-			'best_val_acc':best_val_acc,
-			'optimizer':optimizer.state_dict()},is_best)
-        
-np.savetxt("training_log.out", epoch_history, fmt='%s')
+            is_best = val_acc > best_val_acc
+            best_val_acc = max(val_acc,best_val_acc)
+            save_checkpoint(
+                {'epoch':epoch+1,
+                'state_dict':cnn.state_dict(),
+                'best_val_acc':best_val_acc,
+                'optimizer':optimizer.state_dict()},is_best)
+
+    np.savetxt("training_log.out", epoch_history, fmt='%s')
+    
+train_model(cnn, criterion, optimizer)
         
 
         
