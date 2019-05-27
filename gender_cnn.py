@@ -12,37 +12,40 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import shutil
 import numpy as np
+from custom_dataset_loader import gender_race_dataset
 
 use_gpu = torch.cuda.is_available()
 
 def confusion_matrix(cnn,data_loader):
 	#four groups: white women, non-white women, white men, non-white men
 	#for each group
-	num_sample = np.zeros(4)
+    num_sample = np.zeros(4)
 
-	num_correct,num_sample = 0, 0
-	for images,labels in data_loader:
-		images = Variable(images).cuda()
-		labels = labels.cuda()
-		outputs = cnn(images)
+    num_correct,num_sample = 0, 0
+    for gender_labels, race_labels, img_names, images in data_loader:
+        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+        images = Variable(images).cuda()
+        labels = gender_labels.cuda()
+        outputs, penultimate_weights = cnn(images)
 
-		_,pred = torch.max(outputs.data,1)
-		num_sample += labels.size(0)
-		num_correct += (pred == labels).sum()
-	print("WHITE WOMEN")
-	print("WHITE MEN")
+        _,pred = torch.max(outputs.data,1)
+        num_sample += labels.size(0)
+        num_correct += (pred == labels).sum()
+    print("WHITE WOMEN")
+    print("WHITE MEN")
 
 def check_acc(cnn,data_loader):
-	num_correct,num_sample = 0, 0
-	for images,labels in data_loader:
-		images = Variable(images).cuda()
-		labels = labels.cuda()
-		outputs = cnn(images)
+    num_correct,num_sample = 0, 0
+    for gender_labels, race_labels, img_names, images in data_loader:
+        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+        images = Variable(images).cuda()
+        labels = gender_labels.cuda()
+        outputs, penultimate_weights = cnn(images)
 
-		_,pred = torch.max(outputs.data,1)
-		num_sample += labels.size(0)
-		num_correct += (pred == labels).sum()
-	return float(num_correct)/num_sample
+        _,pred = torch.max(outputs.data,1)
+        num_sample += labels.size(0)
+        num_correct += (pred == labels).sum()
+    return float(num_correct)/num_sample
 
 def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 	plt.figure()
@@ -53,6 +56,7 @@ def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 	plt.xlabel('Number of epochs')
 	plt.legend()
 	plt.savefig('acc_recode.png')
+    
 def save_checkpoint(state,is_best,file_name = 'cnn_checkpoint.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
@@ -72,108 +76,140 @@ test_transform = transforms.Compose([
 
 
 print('Loading images...')
-train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
-test_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
+train_data = gender_race_dataset("train_labels_all.csv", "UTKFace/train", train_transform)
+# train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
+test_data = gender_race_dataset("val_labels_all.csv", "UTKFace/val", test_transform)
+# test_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
+
 
 batch_size = 50
 validation_split = .2
 shuffle_dataset = True
 random_seed= 42
 
-# # Creating data indices for training and validation splits:
-# dataset_size = len(dataset)
-# indices = list(range(dataset_size))
-# split = int(np.floor(validation_split * dataset_size))
-# if shuffle_dataset :
-#     np.random.seed(random_seed)
-#     np.random.shuffle(indices)
-# train_indices, val_indices = indices[split:], indices[:split]
-
-# Creating PT data samplers and loaders:
-# train_sampler = SubsetRandomSampler(train_indices)
-# valid_sampler = SubsetRandomSampler(val_indices)
 
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_data,
 	batch_size=batch_size,shuffle=False)
 
-NUM_CLASS = len(train_loader.dataset.classes)
-print("Number of Training Classes: {}".format(NUM_CLASS))
+# NUM_CLASS = len(train_loader.dataset.classes)
+# print("Number of Training Classes: {}".format(NUM_CLASS))
 
 
 
 class CNN(nn.Module):
-	def __init__(self):
-		super(CNN,self).__init__()
-		self.layer1 = nn.Sequential(
-			nn.Conv2d(3,96,kernel_size=7,stride=4),
-			nn.BatchNorm2d(96),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.layer2 = nn.Sequential(
-			nn.Conv2d(96,256,kernel_size=5,padding=2),
-			nn.BatchNorm2d(256),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.layer3 = nn.Sequential(
-			nn.Conv2d(256,384,kernel_size=3,padding=1),
-			nn.BatchNorm2d(384),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.fc1 = nn.Linear(384*6*6,512)
-		self.fc2 = nn.Linear(512,512)
-		self.fc3 = nn.Linear(512,2)
+    def __init__(self):
+        super(CNN,self).__init__()
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(3,96,kernel_size=7,stride=4),
+            nn.BatchNorm2d(96),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3,stride=2))
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(96,256,kernel_size=5,padding=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3,stride=2))
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(256,384,kernel_size=3,padding=1),
+            nn.BatchNorm2d(384),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3,stride=2))
+        self.fc1 = nn.Linear(384*6*6,512)
+        self.fc2 = nn.Linear(512,512)
+        self.fc3 = nn.Linear(512,2)
 
-	def forward(self,x):
-		out = self.layer1(x)
-		out = self.layer2(out)
-		out = self.layer3(out)
-		out = out.view(out.size(0),-1)
-		#print out.size()
-		out = F.dropout(F.relu(self.fc1(out)))
-		out = F.dropout(F.relu(self.fc2(out)))
-		out = self.fc3(out)
-
-		return out
+    def forward(self,x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = out.view(out.size(0),-1)
+        out = F.dropout(F.relu(self.fc1(out)))
+        penultimate_weights = F.dropout(F.relu(self.fc2(out)))
+        out = self.fc3(penultimate_weights)
+        return out, penultimate_weights
 
 cnn = CNN()
 if use_gpu:
-	cnn.cuda()
+    print('Using GPU for cnn')
+    cnn.cuda()
+    
+class NN(nn.Module):
+    def __init__(self):
+        super(NN,self).__init__()
+        self.fc1 = nn.Linear(512, 100)
+        self.fc2 = nn.Linear(100,2)  
+    
+    def forward(self, x):
+        out = self.fc1(x)
+        out = self.fc2(out)
+        
+        return out
+    
+adversary = NN()
+if use_gpu:
+    print('Using GPU for nn')
+    adversary.cuda()
+    
 
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
-def train_model(cnn, criterion, optimizer, num_epochs = 100):
+nn_criterion = nn.CrossEntropyLoss()
+nn_optimizer = torch.optim.SGD(adversary.parameters(), lr=0.001, momentum=0.9)
 
+def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer, num_epochs = 100):
     loss_history = []
     train_acc_history = []
     val_acc_history = []
     epoch_history = []
     learning_rate = 0.001
     best_val_acc = 0.0
-
+    alpha = 1.0
 
     for epoch in range(num_epochs):
         optimizer = torch.optim.SGD(cnn.parameters(),lr=learning_rate,momentum=0.9)
+        nn_optimizer = torch.optim.SGD(adversary.parameters(),lr=learning_rate,momentum=0.9)
+        
         print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
         print('Learning Rate for this epoch: {}'.format(learning_rate))
 
-        for i,(images,labels) in enumerate(train_loader):
+        i = 0
+        for gender_labels, race_labels, img_names, images in train_loader:
+            gender_labels = torch.from_numpy(np.asarray(gender_labels))
+            race_labels = torch.from_numpy(np.asarray(race_labels))
             images = Variable(images)
-            labels = Variable(labels)
+            labels = Variable(gender_labels)
+            race_labels = Variable(race_labels)
             if use_gpu:
                 images,labels = images.cuda(),labels.cuda()
+                race_labels = race_labels.cuda()
+        
+            pred_labels, penultimate_weights = cnn(images)
+            
+            nn_pred_labels = adversary(penultimate_weights)
 
-            pred_labels = cnn(images)
-            loss = criterion(pred_labels,labels)
+            nn_loss = nn_criterion(nn_pred_labels, race_labels)   
+       
+            cnn_loss = criterion(pred_labels,labels)
+            
+            #loss for gender prediction model
+            loss = cnn_loss - alpha*nn_loss                           
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph = True)
             optimizer.step()
+            
+            #loss for adversary model
+            nn_optimizer.zero_grad()
+            nn_loss.backward()
+            nn_optimizer.step()
 
             if (i+1) % 5 == 0:
-                print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
-                    %(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
+                print ('Epoch [%d/%d], Iter [%d/%d] CNN Loss: %.4f Adversary Loss: %.4f'
+                    %(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data, nn_loss.data))
+            i = i + 1
+                
         if epoch % 10 == 0:
             learning_rate = learning_rate * 0.9
 
@@ -200,9 +236,9 @@ def train_model(cnn, criterion, optimizer, num_epochs = 100):
                 'optimizer':optimizer.state_dict()},is_best)
 
     np.savetxt("training_log.out", epoch_history, fmt='%s')
-    
-train_model(cnn, criterion, optimizer)
-        
+
+
+train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer)       
 
         
 
