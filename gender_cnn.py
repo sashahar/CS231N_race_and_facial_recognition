@@ -13,26 +13,9 @@ import matplotlib.cm as cm
 import shutil
 import numpy as np
 from custom_dataset_loader import gender_race_dataset
+from CNN_architecture import CNN, NN
 
 use_gpu = torch.cuda.is_available()
-
-def confusion_matrix(cnn,data_loader):
-	#four groups: white women, non-white women, white men, non-white men
-	#for each group
-    num_sample = np.zeros(4)
-
-    num_correct,num_sample = 0, 0
-    for gender_labels, race_labels, img_names, images in data_loader:
-        gender_labels = torch.from_numpy(np.asarray(gender_labels))
-        images = Variable(images).cuda()
-        labels = gender_labels.cuda()
-        outputs, penultimate_weights = cnn(images)
-
-        _,pred = torch.max(outputs.data,1)
-        num_sample += labels.size(0)
-        num_correct += (pred == labels).sum()
-    print("WHITE WOMEN")
-    print("WHITE MEN")
 
 def check_acc(cnn,data_loader):
     num_correct,num_sample = 0, 0
@@ -77,9 +60,7 @@ test_transform = transforms.Compose([
 
 print('Loading images...')
 train_data = gender_race_dataset("train_labels_all.csv", "UTKFace/train", train_transform)
-# train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
 test_data = gender_race_dataset("val_labels_all.csv", "UTKFace/val", test_transform)
-# test_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
 
 
 batch_size = 50
@@ -93,60 +74,11 @@ train_loader = torch.utils.data.DataLoader(train_data,
 test_loader = torch.utils.data.DataLoader(test_data,
 	batch_size=batch_size,shuffle=False)
 
-# NUM_CLASS = len(train_loader.dataset.classes)
-# print("Number of Training Classes: {}".format(NUM_CLASS))
-
-
-
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN,self).__init__()
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(3,96,kernel_size=7,stride=4),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3,stride=2))
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(96,256,kernel_size=5,padding=2),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3,stride=2))
-        self.layer3 = nn.Sequential(
-            nn.Conv2d(256,384,kernel_size=3,padding=1),
-            nn.BatchNorm2d(384),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3,stride=2))
-        self.fc1 = nn.Linear(384*6*6,512)
-        self.fc2 = nn.Linear(512,512)
-        self.fc3 = nn.Linear(512,2)
-
-    def forward(self,x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = out.view(out.size(0),-1)
-        out = F.dropout(F.relu(self.fc1(out)))
-        penultimate_weights = F.dropout(F.relu(self.fc2(out)))
-        out = self.fc3(penultimate_weights)
-        return out, penultimate_weights
-
 cnn = CNN()
 if use_gpu:
     print('Using GPU for cnn')
     cnn.cuda()
-    
-class NN(nn.Module):
-    def __init__(self):
-        super(NN,self).__init__()
-        self.fc1 = nn.Linear(512, 100)
-        self.fc2 = nn.Linear(100,2)  
-    
-    def forward(self, x):
-        out = self.fc1(x)
-        out = self.fc2(out)
         
-        return out
-    
 adversary = NN()
 if use_gpu:
     print('Using GPU for nn')

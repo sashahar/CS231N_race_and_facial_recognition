@@ -14,67 +14,41 @@ import matplotlib.cm as cm
 import shutil
 import numpy as np
 import os
-#from gender import CNN
+from CNN_architecture import CNN
+from custom_dataset_loader import gender_race_dataset
+import pandas as pd
 
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
-model = "vgg"
-outfile = "predictions_vgg_v2.csv"
+model = "cnn"
+outfile = "adversarial_cnn_v1.csv"
 
 
-class CNN(nn.Module):
-	def __init__(self):
-		super(CNN,self).__init__()
-		self.layer1 = nn.Sequential(
-			nn.Conv2d(3,96,kernel_size=7,stride=4),
-			nn.BatchNorm2d(96),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.layer2 = nn.Sequential(
-			nn.Conv2d(96,256,kernel_size=5,padding=2),
-			nn.BatchNorm2d(256),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.layer3 = nn.Sequential(
-			nn.Conv2d(256,384,kernel_size=3,padding=1),
-			nn.BatchNorm2d(384),
-			nn.ReLU(),
-			nn.MaxPool2d(kernel_size=3,stride=2))
-		self.fc1 = nn.Linear(384*6*6,512)
-		self.fc2 = nn.Linear(512,512)
-		self.fc3 = nn.Linear(512,2)
+def generate_predictions(cnn,data_loader):
+    preds = np.array([])
+    correct = np.array([])
+    filenames = np.array([])
+    races = np.array([])
+    num_correct,num_sample = 0, 0
+    for gender_labels, race_labels, img_names, images in data_loader:
+        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+        race_labels = np.asarray(race_labels)
+        races = np.append(races, race_labels)
+        filenames = np.append(filenames, np.asarray(img_names))
+        if use_gpu:
+            images = Variable(images).cuda()
+            labels = gender_labels.cuda()
+        outputs,_ = cnn(images)
+        _,pred = torch.max(outputs.data,1)
+        num_sample += labels.size(0)
+        num_correct += (pred == labels).sum()
+        correct = np.append(correct, labels.cpu().numpy())
+        preds = np.append(preds, pred.cpu().numpy())
+        print("Validation Predictions - accuracy: ", sum(preds==correct)/len(correct))
 
-	def forward(self,x):
-		out = self.layer1(x)
-		out = self.layer2(out)
-		out = self.layer3(out)
-		out = out.view(out.size(0),-1)
-		#print out.size()
-		out = F.dropout(F.relu(self.fc1(out)))
-		out = F.dropout(F.relu(self.fc2(out)))
-		out = self.fc3(out)
-
-		return out
-    
-
-
-def confusion_matrix(cnn,data_loader, filenames):
-	preds = np.array([])
-	correct = np.array([])
-	num_correct,num_sample = 0, 0
-	for images,labels in data_loader:
-		if use_gpu:
-			images = Variable(images).cuda()
-			labels = labels.cuda()
-		outputs = cnn(images)
-		_,pred = torch.max(outputs.data,1)
-		num_sample += labels.size(0)
-		num_correct += (pred == labels).sum()
-		correct = np.append(correct, labels.cpu().numpy())
-		preds = np.append(preds, pred.cpu().numpy())
-		print("Validation Predictions - accuracy: ", sum(preds==correct)/len(correct))
-	np.savetxt(outfile, (filenames, correct, preds), fmt = '%s', delimiter=',')
+    df = pd.DataFrame(np.concatenate((np.expand_dims(filenames, axis = 1), np.expand_dims(correct, axis=1), np.expand_dims(preds, axis=1), np.expand_dims(races, axis = 1)), axis =1), columns = ["Filenames", "label", "pred", "race"])
+    df.to_csv(outfile, header=True)
 
 
 test_transform = transforms.Compose([
@@ -86,14 +60,8 @@ test_transform = transforms.Compose([
 print('Loading images...')
 batch_size = 50
 root='UTKFace/val'
-filenames = []
-for female_file in os.listdir(os.path.join(root, "female")):
-	filenames.append(str(female_file))
-for male_file in os.listdir(os.path.join(root, "male")):
-	filenames.append(str(male_file))
-print(len(filenames))
-val_data = dsets.ImageFolder(root=root, transform =test_transform)
 
+val_data = gender_race_dataset("val_labels_all.csv", root, test_transform)
 val_loader = torch.utils.data.DataLoader(val_data,
 	batch_size=batch_size,shuffle=False)
 
@@ -116,7 +84,7 @@ if model == "cnn":
 
     print("best val_acc = ", best_val_acc)
 
-    val_acc = confusion_matrix(cnn,val_loader, np.array(filenames))
+    val_acc = generate_predictions(cnn,val_loader)
     
 elif model == "vgg":
     print("Using VGG")
@@ -145,4 +113,4 @@ elif model == "vgg":
 
     print("best val_acc = ", best_val_acc)
 
-    val_acc = confusion_matrix(vgg16,val_loader, np.array(filenames))
+    val_acc = generate_predictions(vgg16,val_loader)
