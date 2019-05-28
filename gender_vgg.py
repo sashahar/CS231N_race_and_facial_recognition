@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import shutil
 import numpy as np
+from custom_dataset_loader import gender_race_dataset
 
 use_gpu = torch.cuda.is_available()
 if use_gpu:
@@ -22,18 +23,18 @@ if use_gpu:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def check_acc(model,data_loader):
-	num_correct,num_sample = 0, 0
-	for images,labels in data_loader:
-		if use_gpu:
-			images = Variable(images.cuda())
-			labels = Variable(labels.cuda())
-		outputs = model(images)
+    num_correct,num_sample = 0, 0
+    for gender_labels, race_labels, img_names, images in data_loader:
+        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+        images = Variable(images).cuda()
+        labels = gender_labels.cuda()
+        outputs, penultimate_weights = model(images)
 
-		_,pred = torch.max(outputs.data,1)
-		num_sample += labels.size(0)
-		num_correct += (pred == labels).sum()
-		torch.cuda.empty_cache()
-	return float(num_correct)/num_sample
+        _,pred = torch.max(outputs.data,1)
+        num_sample += labels.size(0)
+        num_correct += (pred == labels).sum()
+        torch.cuda.empty_cache()
+    return float(num_correct)/num_sample
 
 def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 	plt.figure()
@@ -61,35 +62,20 @@ test_transform = transforms.Compose([
 	transforms.ToTensor()
 	])
 
-
-print('Loading images...')
-train_data = dsets.ImageFolder(root='UTKFace/train',transform = train_transform)
-test_data = dsets.ImageFolder(root='UTKFace/val',transform =test_transform)
-
 batch_size = 50
 validation_split = .2
 shuffle_dataset = True
 random_seed= 42
 
-# Creating data indices for training and validation splits:
-#dataset_size = len(dataset)
-#indices = list(range(dataset_size))
-#split = int(np.floor(validation_split * dataset_size))
-#if shuffle_dataset :
-    #np.random.seed(random_seed)
-    #np.random.shuffle(indices)
-#train_indices, val_indices = indices[split:], indices[:split]
-
-# Creating PT data samplers and loaders:
-#train_sampler = SubsetRandomSampler(train_indices)
-#valid_sampler = SubsetRandomSampler(val_indices)
-
+print('Loading images...')
+train_data = gender_race_dataset("train_labels_all.csv", "UTKFace/train", train_transform)
+test_data = gender_race_dataset("val_labels_all.csv", "UTKFace/val", test_transform)
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True, num_workers=4)
 test_loader = torch.utils.data.DataLoader(test_data,
 	batch_size=batch_size,shuffle=False, num_workers=4)
 
-NUM_CLASSES = len(train_loader.dataset.classes)
+NUM_CLASSES = 2
 print("Number of Training Classes: {}".format(NUM_CLASSES))
 
 
@@ -103,6 +89,7 @@ print("Number of Training Classes: {}".format(NUM_CLASSES))
 # model.fc = nn.Linear(num_ftrs, NUM_CLASS)
 # Load the pretrained model from pytorch
 vgg16 = models.vgg16(pretrained = True)
+print(vgg16)
 
 
 # Freeze training for all layers
@@ -110,29 +97,34 @@ for param in vgg16.features.parameters():
     param.require_grad = False
 
 # Newly created modules have require_grad=True by default
-num_features = vgg16.classifier[6].in_features
-features = list(vgg16.classifier.children())[:-1] # Remove last layer
-features.extend([nn.Linear(num_features, NUM_CLASSES)]) # Add our layer with 4 outputs
+print(vgg16.classifier[3].in_features)
+num_features1 = vgg16.classifier[3].in_features
+num_features2 = vgg16.classifier[6].in_features
+print(num_features1, num_features2)
+features = list(vgg16.classifier.children())[:-4] # Remove last layer
+features.extend([nn.Linear(num_features1, num_features2), nn.ReLU(), nn.Dropout(p=0.5), nn.Linear(num_features2, NUM_CLASSES)]) # Add our layer with 4 outputs
 vgg16.classifier = nn.Sequential(*features) # Replace the model classifier
-#print(vgg16)
+print(vgg16)
+
+# vgg16.classifier = nn.Sequential(
+#     nn.Linear(3 * 32 * 32, hidden_layer_size),
+#     nn.ReLU(),
+#     nn.Linear(hidden_layer_size, 10),)
 
 if use_gpu:
     vgg16.cuda()
 
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
-
+#optimizer = torch.optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.Adam(vgg16.parameters(), lr=0.001)
 # Decay LR by a factor of 0.1 every 7 epochs
-#exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+
 
 loss_history = []
-num_epochs = 15
 train_acc_history = []
 val_acc_history = []
 epoch_history = []
-learning_rate = 0.001
-best_val_acc = 0.0
 
 def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 	best_val_acc = 0.0
@@ -143,10 +135,11 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
         #optimizer = torch.optim.SGD(vgg16.parameters(),lr=learning_rate,momentum=0.9)
 		print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
         #print('Learning Rate for this epoch: {}'.format(learning_rate))
-        
+
 		vgg16.train(True)
 
-		for i,(images,labels) in enumerate(train_loader):
+        #for gender_labels, race_labels, img_names, images in train_loader:
+		for i,(labels, race_labels, img_names, images) in enumerate(train_loader):
 			images = Variable(images)
 			labels = Variable(labels)
 			if use_gpu:
@@ -155,7 +148,7 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 			optimizer.zero_grad()
 			pred_labels = vgg16(images)
 			loss = criterion(pred_labels,labels)
-            
+
 			loss.backward()
 			optimizer.step()
 			torch.cuda.empty_cache()
@@ -187,5 +180,5 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 				'state_dict':vgg16.state_dict(),
 				'best_val_acc':best_val_acc,
 				'optimizer':optimizer.state_dict()},is_best)
-            
+
 train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=10)
