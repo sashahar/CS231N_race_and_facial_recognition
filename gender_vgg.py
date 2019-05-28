@@ -19,7 +19,6 @@ from custom_dataset_loader import gender_race_dataset
 use_gpu = torch.cuda.is_available()
 if use_gpu:
     print("USING GPU")
-    print(torch.cuda.device_count())
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def check_acc(model,data_loader):
@@ -28,7 +27,7 @@ def check_acc(model,data_loader):
         gender_labels = torch.from_numpy(np.asarray(gender_labels))
         images = Variable(images).cuda()
         labels = gender_labels.cuda()
-        outputs, penultimate_weights = model(images)
+        outputs = model(images)
 
         _,pred = torch.max(outputs.data,1)
         num_sample += labels.size(0)
@@ -46,10 +45,10 @@ def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 	plt.legend()
 	plt.savefig('acc_recode.png')
 
-def save_checkpoint(state,is_best,file_name = 'vgg_checkpoint.pth.tar'):
+def save_checkpoint(state,is_best,file_name = 'vgg_checkpoint_v3.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
-		shutil.copyfile(file_name,'vgg_model_best.pth.tar')
+		shutil.copyfile(file_name,'vgg_model_best_v3.pth.tar')
 
 train_transform = transforms.Compose([
 	transforms.RandomResizedCrop(224),
@@ -89,22 +88,17 @@ print("Number of Training Classes: {}".format(NUM_CLASSES))
 # model.fc = nn.Linear(num_ftrs, NUM_CLASS)
 # Load the pretrained model from pytorch
 vgg16 = models.vgg16(pretrained = True)
-print(vgg16)
 
 
 # Freeze training for all layers
 for param in vgg16.features.parameters():
     param.require_grad = False
 
-# Newly created modules have require_grad=True by default
-print(vgg16.classifier[3].in_features)
 num_features1 = vgg16.classifier[3].in_features
 num_features2 = vgg16.classifier[6].in_features
-print(num_features1, num_features2)
 features = list(vgg16.classifier.children())[:-4] # Remove last layer
 features.extend([nn.Linear(num_features1, num_features2), nn.ReLU(), nn.Dropout(p=0.5), nn.Linear(num_features2, NUM_CLASSES)]) # Add our layer with 4 outputs
 vgg16.classifier = nn.Sequential(*features) # Replace the model classifier
-print(vgg16)
 
 # vgg16.classifier = nn.Sequential(
 #     nn.Linear(3 * 32 * 32, hidden_layer_size),
@@ -159,9 +153,7 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 
 		vgg16.train(False)
 		vgg16.eval()
-		if True:
-        #if epoch % 5 ==0 or epoch == num_epochs-1:
-            #learning_rate = learning_rate * 0.2
+		if epoch % 5 ==0 or epoch == num_epochs-1:
 
 			train_acc = check_acc(vgg16,train_loader)
 			train_acc_history.append(train_acc)
