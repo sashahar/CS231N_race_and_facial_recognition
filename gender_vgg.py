@@ -157,13 +157,16 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 
 			train_acc = check_acc(vgg16,train_loader)
 			train_acc_history.append(train_acc)
-			print('Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc))
+            train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+			print(train_msg)
+            epoch_history.append(train_msg)
 
 			val_acc = check_acc(vgg16,test_loader)
 			val_acc_history.append(val_acc)
-			print('Validation accuracy for epoch {} : {} '.format(epoch + 1,val_acc))
-			epoch_history.append(epoch+1)
-			plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
+			val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
+            print(val_msg)
+            epoch_history.append(val_msg)
+			#plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
 			best_val_acc = max(val_acc,best_val_acc)
 
 			is_best = val_acc > best_val_acc
@@ -172,5 +175,6 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 				'state_dict':vgg16.state_dict(),
 				'best_val_acc':best_val_acc,
 				'optimizer':optimizer.state_dict()},is_best)
+	np.savetxt("training_log_vgg_v3.out", epoch_history, fmt='%s')
 
 train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=10)
