@@ -57,15 +57,18 @@ print("Number of Training Classes: {}".format(NUM_CLASSES))
 
 model = models.resnet18(pretrained=True)
 for param in model.parameters():
-  param.requires_grad = True
+    param.requires_grad = False
+
+for param in model.fc.parameters():
+    param.requires_grad = True
 
 #print(model)
 
 #Source of code below:
 
 # Parameters of newly constructed modules have requires_grad=True by default
-num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 2)
+num_ftrs = model.fc.out_features
+model = nn.Sequential(model, nn.ReLU(), nn.Linear(num_ftrs, 2))
 
 model = model.to(device)
 
@@ -73,7 +76,7 @@ criterion = nn.CrossEntropyLoss()
 
 # Observe that only parameters of final layer are being optimized as
 # opposed to before.
-optimizer = torch.optim.SGD(model.fc.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
