@@ -46,6 +46,7 @@ random_seed= 42
 print('Loading images...')
 train_data = gender_race_dataset("train_labels_all.csv", "UTKFace/train", train_transform)
 test_data = gender_race_dataset("val_labels_all.csv", "UTKFace/val", test_transform)
+dataset_sizes = {"train": len(train_data), "val": len(test_data)}
 train_loader = torch.utils.data.DataLoader(train_data,
 	batch_size=batch_size, shuffle=True, num_workers=4)
 test_loader = torch.utils.data.DataLoader(test_data,
@@ -56,9 +57,9 @@ print("Number of Training Classes: {}".format(NUM_CLASSES))
 
 model = models.resnet18(pretrained=True)
 for param in model.parameters():
-  param.requires_grad = False
+  param.requires_grad = True
 
-print(model)
+#print(model)
 
 #Source of code below:
 
@@ -136,7 +137,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 best_val_acc = max(epoch_acc,best_acc)
                 save_checkpoint(
                     {'epoch':epoch+1,
-                    'state_dict':cnn.state_dict(),
+                    'state_dict':model.state_dict(),
                     'best_val_acc':best_acc,
                     'optimizer':optimizer.state_dict()},is_best)
                 if is_best:
