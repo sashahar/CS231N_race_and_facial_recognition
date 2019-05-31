@@ -154,18 +154,17 @@ def train_model(vgg16, criterion, optimizer, scheduler, num_epochs=10):
 		vgg16.train(False)
 		vgg16.eval()
 		if epoch % 5 ==0 or epoch == num_epochs-1:
-
 			train_acc = check_acc(vgg16,train_loader)
 			train_acc_history.append(train_acc)
-            train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
-			print(train_msg)
-            epoch_history.append(train_msg)
+            #train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+			#print(train_msg)
+            #epoch_history.append(train_msg)
 
 			val_acc = check_acc(vgg16,test_loader)
 			val_acc_history.append(val_acc)
 			val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
-            print(val_msg)
-            epoch_history.append(val_msg)
+            #print(val_msg)
+            #epoch_history.append(val_msg)
 			#plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
 			best_val_acc = max(val_acc,best_val_acc)
 
