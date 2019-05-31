@@ -57,9 +57,6 @@ print("Number of Training Classes: {}".format(NUM_CLASSES))
 
 model = models.resnet18(pretrained=True)
 for param in model.parameters():
-    param.requires_grad = False
-
-for param in model.fc.parameters():
     param.requires_grad = True
 
 #print(model)
@@ -68,7 +65,7 @@ for param in model.fc.parameters():
 
 # Parameters of newly constructed modules have requires_grad=True by default
 num_ftrs = model.fc.out_features
-model = nn.Sequential(model, nn.ReLU(), nn.Linear(num_ftrs, 2))
+model = nn.Sequential(model, nn.Linear(num_ftrs, 1000), nn.ReLU(), nn.Linear(1000, 2))
 
 model = model.to(device)
 
@@ -76,27 +73,26 @@ criterion = nn.CrossEntropyLoss()
 
 # Observe that only parameters of final layer are being optimized as
 # opposed to before.
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Decay LR by a factor of 0.1 every 7 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+# exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 dataloaders = {"train": train_loader, "val": test_loader}
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, learning_rate, num_epochs=35):
     since = time.time()
-
+    
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-
+    
     for epoch in range(num_epochs):
+        optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate,momentum=0.9)
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
                 model.train()  # Set model to training mode
             else:
                 model.eval()   # Set model to evaluate mode
@@ -130,19 +126,21 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
+            if epoch % 5 == 0:
+                learning_rate = learning_rate * 0.9
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
+                 phase, epoch_loss, epoch_acc))
 
-            # deep copy the model
+                # deep copy the model
             if phase == 'val':
                 is_best = epoch_acc > best_acc
-                best_val_acc = max(epoch_acc,best_acc)
+                best_acc = max(epoch_acc,best_acc)
                 save_checkpoint(
-                    {'epoch':epoch+1,
-                    'state_dict':model.state_dict(),
-                    'best_val_acc':best_acc,
-                    'optimizer':optimizer.state_dict()},is_best)
+                        {'epoch':epoch+1,
+                        'state_dict':model.state_dict(),
+                        'best_val_acc':best_acc,
+                        'optimizer':optimizer.state_dict()},is_best)
                 if is_best:
                     best_model_wts = copy.deepcopy(model.state_dict())
 
@@ -150,7 +148,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
+            time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_acc))
 
     # load best model weights
@@ -158,4 +156,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 #MAIN
-model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs=25)
+learning_rates = [0.002]
+    
+for lr in learning_rates:
+    print("Testing learning rate ", lr)
+    model = train_model(model, criterion, lr)
+    
