@@ -2,6 +2,7 @@ import torch
 import time
 import copy
 import torch.nn as nn
+import pandas as pd
 import torch.nn.functional as F
 import torchvision.datasets as dsets
 import torchvision.transforms as transforms
@@ -33,10 +34,10 @@ test_transform = transforms.Compose([
 	transforms.ToTensor()
 	])
 
-def save_checkpoint(state,is_best,file_name = 'resnet_checkpoint_v1.pth.tar'):
+def save_checkpoint(state,is_best,file_name = 'resnet_checkpoint_v2.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
-		shutil.copyfile(file_name,'resnet_model_best_v1.pth.tar')
+		shutil.copyfile(file_name,'resnet_model_best_v2.pth.tar')
 
 batch_size = 50
 validation_split = .2
@@ -78,6 +79,35 @@ criterion = nn.CrossEntropyLoss()
 # exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 dataloaders = {"train": train_loader, "val": test_loader}
+
+outfile = "resnet_v1.csv"
+
+def generate_predictions(cnn,data_loader):
+    preds = np.array([])
+    correct = np.array([])
+    filenames = np.array([])
+    races = np.array([])
+    num_correct,num_sample = 0, 0
+    for gender_labels, race_labels, img_names, images in data_loader:
+        print("BATCH")
+        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+        race_labels = np.asarray(race_labels)
+        races = np.append(races, race_labels)
+        filenames = np.append(filenames, np.asarray(img_names))
+        if use_gpu:
+            images = Variable(images).cuda()
+            labels = gender_labels.cuda()
+        outputs = cnn(images)
+        #outputs,_ = cnn(images)
+        _,pred = torch.max(outputs.data,1)
+        num_sample += labels.size(0)
+        num_correct += (pred == labels).sum()
+        correct = np.append(correct, labels.cpu().numpy())
+        preds = np.append(preds, pred.cpu().numpy())
+    print("Validation Predictions - accuracy: ", sum(preds==correct)/len(correct))
+
+    df = pd.DataFrame(np.concatenate((np.expand_dims(filenames, axis = 1), np.expand_dims(correct, axis=1), np.expand_dims(preds, axis=1), np.expand_dims(races, axis = 1)), axis =1), columns = ["Filenames", "label", "pred", "race"])
+    df.to_csv(outfile, header=True)
 
 def train_model(model, criterion, learning_rate, num_epochs=35):
     since = time.time()
@@ -140,7 +170,7 @@ def train_model(model, criterion, learning_rate, num_epochs=35):
                         {'epoch':epoch+1,
                         'state_dict':model.state_dict(),
                         'best_val_acc':best_acc,
-                        'optimizer':optimizer.state_dict()},is_best)
+                        'optimizer':optimizer.state_dict()}, is_best)
                 if is_best:
                     best_model_wts = copy.deepcopy(model.state_dict())
 
@@ -161,4 +191,10 @@ learning_rates = [0.002]
 for lr in learning_rates:
     print("Testing learning rate ", lr)
     model = train_model(model, criterion, lr)
+    
+generate_predictions(model,test_loader)
+    
+
+    
+
     
