@@ -20,11 +20,50 @@ import pandas as pd
 
 use_gpu = torch.cuda.is_available()
 
+# TODO: We might need to move grad_cam.py or a copy of it into the main CS231N_race_and_facial_recognition folder
+from grad_cam import (
+    BackPropagation,
+    Deconvnet,
+    GradCAM,
+    GuidedBackPropagation,
+    occlusion_sensitivity,
+)
+
 #which model do you want the predictions for?
 model = "cnn"
 outfile = "adversarial_cnn_v1.csv"
 
+##########################
+# For Grad Cam
+def get_classtable():
+    classes = []
+    with open("grad-cam-pytorch/samples/gender_labels.txt") as lines:
+        for line in lines:
+            classes.append(line)
+    return classes
 
+def preprocess(image_path):
+    raw_image = cv2.imread(image_path)
+    raw_image = cv2.resize(raw_image, (224,) * 2)
+    image = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )(raw_image[..., ::-1].copy())
+    return image, raw_image
+
+def save_gradcam(filename, gcam, raw_image, paper_cmap=False):
+    gcam = gcam.cpu().numpy()
+    cmap = cm.jet_r(gcam)[..., :3] * 255.0
+    if paper_cmap:
+        alpha = gcam[..., None]
+        gcam = alpha * cmap + (1 - alpha) * raw_image
+    else:
+        gcam = (cmap.astype(np.float) + raw_image.astype(np.float)) / 2
+    cv2.imwrite(filename, np.uint8(gcam))
+
+###################
 def generate_predictions(cnn,data_loader):
     preds = np.array([])
     correct = np.array([])
@@ -114,3 +153,63 @@ elif model == "vgg":
     print("best val_acc = ", best_val_acc)
 
     val_acc = generate_predictions(vgg16,val_loader)
+    
+    #########################
+    # GRAD CAM
+    classes = get_classtable()
+    
+    #Get image paths
+    image_paths = []
+    q = 0
+    for female_file in os.listdir(os.path.join(root, "female")):
+        image_paths.append(os.path.join(root, os.path.join("female",str(female_file))))
+        q += 1
+        if (q == 10):
+            break
+    q = 0 
+    for male_file in os.listdir(os.path.join(root, "male")):
+        image_paths.append(os.path.join(root, os.path.join("male",str(male_file))))
+        q += 1
+        if (q == 10):
+            break
+    print(len(image_paths))
+    
+    # preprocess each image
+    images = []
+    raw_images = []
+    print("Images:")
+    for i, image_path in enumerate(image_paths):
+        print("\t#{}: {}".format(i, image_path))
+        image, raw_image = preprocess(image_path)
+        images.append(image)
+        raw_images.append(raw_image)
+    images = torch.stack(images)  #.to(device)
+
+    # Here we choose the last convolution layer TODO: This will likely be wrong!
+    target_layer = "exit_flow.conv4"
+    target_class = 0 
+
+    # run grad cam on all images!
+    gcam = GradCAM(model=vgg16)
+    probs, ids = gcam.forward(images)
+    ids_ = torch.LongTensor([[target_class]] * len(images))  #.to(device)
+    gcam.backward(ids=ids_)
+
+    for target_layer in target_layers:
+        print("Generating Grad-CAM @{}".format(target_layer))
+
+        # Grad-CAM
+        regions = gcam.generate(target_layer=target_layer)
+
+        for j in range(len(images)):
+
+            save_gradcam(
+                filename=osp.join(
+                    output_dir,
+                    "{}-{}-gradcam-{}-{}.png".format(
+                        j, "VGG16", target_layer, classes[target_class]
+                    ),
+                ),
+                gcam=regions[j, 0],
+                raw_image=raw_images[j],
+            )
