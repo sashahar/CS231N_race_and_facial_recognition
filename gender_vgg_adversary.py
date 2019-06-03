@@ -88,7 +88,7 @@ NUM_CLASSES = 2
 criterion = nn.CrossEntropyLoss()
 # optimizer = torch.optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
 
-adversary = NN()
+adversary = NN(4096)
 if use_gpu:
     print("Using GPU for adversary")
     adversary.cuda()

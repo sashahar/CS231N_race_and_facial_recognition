@@ -62,9 +62,10 @@ class CNN(nn.Module):
 
     
 class NN(nn.Module):
-    def __init__(self):
+    def __init__(self, features):
         super(NN,self).__init__()
-        self.fc1 = nn.Linear(512, 100) #Needs to be 1000 for resnet #Needs to be 4096 for vgg #Needs to be 512 when doing CNN
+        self.fc1 = nn.Linear(features, 100) 
+        #features Needs to be 1000 for resnet #Needs to be 4096 for vgg #Needs to be 512 when doing CNN
         self.fc2 = nn.Linear(100,2)  
     
     def forward(self, x):

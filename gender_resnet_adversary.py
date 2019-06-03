@@ -77,7 +77,7 @@ model = model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 
-adversary = NN()
+adversary = NN(1000)
 adversary = adversary.to(device)
 nn_criterion = nn.CrossEntropyLoss()
 

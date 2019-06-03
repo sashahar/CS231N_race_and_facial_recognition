@@ -79,7 +79,7 @@ if use_gpu:
     print('Using GPU for cnn')
     cnn.cuda()
         
-adversary = NN()
+adversary = NN(512)
 if use_gpu:
     print('Using GPU for nn')
     adversary.cuda()
@@ -127,7 +127,7 @@ def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer
                 epoch_history.append(a_msg)
                 cnn = CNN(p)
                 cnn.cuda()
-                adversary = NN()
+                adversary = NN(512)
                 adversary.cuda()
 
                 for epoch in range(num_epochs):
