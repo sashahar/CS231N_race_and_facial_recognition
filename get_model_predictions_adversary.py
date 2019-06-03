@@ -193,7 +193,7 @@ elif model == "vgg":
 
     # Here we choose the last convolution layer TODO: This will likely be wrong!
     target_layer = "exit_flow.conv4"
-    target_class = 0 
+    target_class = 1 
 
     # run grad cam on all images!
     gcam = GradCAM(model=myVGG)
@@ -208,7 +208,10 @@ elif model == "vgg":
         regions = gcam.generate(target_layer=target_layer)
 
         for j in range(len(images)):
-
+            # Make the target class male. The second half of the images are all of men. Please excuse the hack. 
+            if j > (len(images)/2):
+                target_class = 0
+                
             save_gradcam(
                 filename=osp.join(
                     output_dir,
