@@ -23,7 +23,7 @@ def check_acc(cnn,data_loader):
         gender_labels = torch.from_numpy(np.asarray(gender_labels))
         images = Variable(images).cuda()
         labels = gender_labels.cuda()
-        outputs, penultimate_weights = cnn(images)
+        outputs,_,_= cnn(images)
 
         _,pred = torch.max(outputs.data,1)
         num_sample += labels.size(0)
@@ -43,7 +43,7 @@ def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 def save_checkpoint(state,is_best,file_name = 'cnn_checkpoint.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
-		shutil.copyfile(file_name,'cnn_model_best.pth.tar')
+		shutil.copyfile(file_name,'cnn_model_best_Adam_adversary.pth.tar')
 
 train_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -87,90 +87,126 @@ if use_gpu:
 
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
+# optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001, betas=(0.9, 0.999))
 
 nn_criterion = nn.CrossEntropyLoss()
 nn_optimizer = torch.optim.SGD(adversary.parameters(), lr=0.001, momentum=0.9)
+# nn_optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001, betas=(0.9, 0.999))
 
 def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer, num_epochs = 100):
     loss_history = []
     train_acc_history = []
     val_acc_history = []
     epoch_history = []
-    learning_rate = 0.001
+#     learning_rate = 0.001
+#     learning_rate = np.logspace(-6,-2, num=15)
+#     learning_rate = np.logspace(-3,-2, num=8)
+#     learning_rate = [1.389e-03, 5e-4]
     best_val_acc = 0.0
-    alpha = 1.0
+#     alpha = 1.0
+#     p_vals = np.array([0.5])
+    p = 0.5
+    learning_rate = [0.001]
+    alpha = [0.9]
+#     alpha = np.array([0.9, 1.0])
 
-    for epoch in range(num_epochs):
-        optimizer = torch.optim.SGD(cnn.parameters(),lr=learning_rate,momentum=0.9)
-        nn_optimizer = torch.optim.SGD(adversary.parameters(),lr=learning_rate,momentum=0.9)
-        
-        print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
-        print('Learning Rate for this epoch: {}'.format(learning_rate))
+    for layer in range(2,3):
+        for lr in learning_rate:
+            for a in alpha:
+                layer_msg = 'Layer for this model: {}'.format(layer)
+                print(layer_msg)
+                epoch_history.append(layer_msg)
+                lr_msg = 'Learning Rate for this model: {}'.format(lr)
+                print(lr_msg)
+                epoch_history.append(lr_msg)
+                p_msg = 'Dropout p for this model: {}'.format(p)
+                print(p_msg)
+                epoch_history.append(p_msg)
+                a_msg = 'Alpha for this model: {}'.format(a)
+                print(a_msg)
+                epoch_history.append(a_msg)
+                cnn = CNN(p)
+                cnn.cuda()
+                adversary = NN()
+                adversary.cuda()
 
-        i = 0
-        for gender_labels, race_labels, img_names, images in train_loader:
-            gender_labels = torch.from_numpy(np.asarray(gender_labels))
-            race_labels = torch.from_numpy(np.asarray(race_labels))
-            images = Variable(images)
-            labels = Variable(gender_labels)
-            race_labels = Variable(race_labels)
-            if use_gpu:
-                images,labels = images.cuda(),labels.cuda()
-                race_labels = race_labels.cuda()
-        
-            pred_labels, penultimate_weights = cnn(images)
-            
-            nn_pred_labels = adversary(penultimate_weights)
+                for epoch in range(num_epochs):
+#                     optimizer = torch.optim.SGD(cnn.parameters(),lr=lr,momentum=0.9)
+#                     nn_optimizer = torch.optim.SGD(adversary.parameters(),lr=lr,momentum=0.9)
+                    optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
+                    nn_optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
 
-            nn_loss = nn_criterion(nn_pred_labels, race_labels)   
-       
-            cnn_loss = criterion(pred_labels,labels)
-            
-            #loss for gender prediction model
-            loss = cnn_loss - alpha*nn_loss                           
-            optimizer.zero_grad()
-            loss.backward(retain_graph = True)
-            optimizer.step()
-            
-            #loss for adversary model
-            nn_optimizer.zero_grad()
-            nn_loss.backward()
-            nn_optimizer.step()
+                    print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
+        #             print('Learning Rate for this epoch: {}'.format(learning_rate))
+#                     print('Learning Rate for this epoch: {}'.format(lr))
 
-            if (i+1) % 5 == 0:
-                print ('Epoch [%d/%d], Iter [%d/%d] CNN Loss: %.4f Adversary Loss: %.4f'
-                    %(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data, nn_loss.data))
-            i = i + 1
+                    i = 0
+                    for gender_labels, race_labels, img_names, images in train_loader:
+                        gender_labels = torch.from_numpy(np.asarray(gender_labels))
+                        race_labels = torch.from_numpy(np.asarray(race_labels))
+                        images = Variable(images)
+                        labels = Variable(gender_labels)
+                        race_labels = Variable(race_labels)
+                        if use_gpu:
+                            images,labels = images.cuda(),labels.cuda()
+                            race_labels = race_labels.cuda()
+
+                        pred_labels, penultimate_weights, layer_2 = cnn(images)
+                        if layer == 1:
+                            nn_pred_labels = adversary(penultimate_weights)
+                        if layer == 2:
+                            nn_pred_labels = adversary(layer_2)
+
+                        nn_loss = nn_criterion(nn_pred_labels, race_labels)   
+                        
+                        cnn_loss = criterion(pred_labels,labels)
+
+                        #loss for gender prediction model
+#                         loss = cnn_loss - alpha*nn_loss  
+                        loss = cnn_loss - a*nn_loss
+                        optimizer.zero_grad()
+                        loss.backward(retain_graph = True)
+                        optimizer.step()
+
+                        #loss for adversary model
+                        nn_optimizer.zero_grad()
+                        nn_loss.backward()
+                        nn_optimizer.step()
+
+                        if (i+1) % 5 == 0:
+                            print ('Epoch [%d/%d], Iter [%d/%d] CNN Loss: %.4f Adversary Loss: %.4f'
+                                %(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data, nn_loss.data))
+                        i = i + 1
+
+            #         if epoch % 10 == 0:
+            #             learning_rate = learning_rate * 0.9
+
+        #             if epoch % 5 ==0 or epoch == num_epochs-1:
+                    train_acc = check_acc(cnn,train_loader)
+                    train_acc_history.append(train_acc)
+                    train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+                    print(train_msg)
+                    epoch_history.append(train_msg)
+
+                    val_acc = check_acc(cnn,test_loader)
+                    val_acc_history.append(val_acc)
+                    val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
+                    print(val_msg)
+                    epoch_history.append(val_msg)
+                    #plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
+
+                    is_best = val_acc > best_val_acc
+                    best_val_acc = max(val_acc,best_val_acc)
+                    save_checkpoint(
+                            {'epoch':epoch+1,
+                            'state_dict':cnn.state_dict(),
+                            'best_val_acc':best_val_acc,
+                            'optimizer':optimizer.state_dict()},is_best)
                 
-        if epoch % 10 == 0:
-            learning_rate = learning_rate * 0.9
-
-        if epoch % 5 ==0 or epoch == num_epochs-1:
-            train_acc = check_acc(cnn,train_loader)
-            train_acc_history.append(train_acc)
-            train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
-            print(train_msg)
-            epoch_history.append(train_msg)
-
-            val_acc = check_acc(cnn,test_loader)
-            val_acc_history.append(val_acc)
-            val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
-            print(val_msg)
-            epoch_history.append(val_msg)
-            #plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
-
-            is_best = val_acc > best_val_acc
-            best_val_acc = max(val_acc,best_val_acc)
-            save_checkpoint(
-                {'epoch':epoch+1,
-                'state_dict':cnn.state_dict(),
-                'best_val_acc':best_val_acc,
-                'optimizer':optimizer.state_dict()},is_best)
-
-    np.savetxt("training_log.out", epoch_history, fmt='%s')
+                    np.savetxt("training_log_cnn_Adam.out", epoch_history, fmt='%s')
 
 
-train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer)       
+train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer, 100)       
 
         
 
