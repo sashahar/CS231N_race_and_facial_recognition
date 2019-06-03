@@ -22,8 +22,8 @@ import pandas as pd
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
-model = "vgg"
-outfile = "predictions_adversarial_vgg_v1.csv"
+model = "cnn"
+outfile = "predictions_adversarial_cnn_best.csv"
 
 
 def generate_predictions(cnn,data_loader):
@@ -40,7 +40,7 @@ def generate_predictions(cnn,data_loader):
         if use_gpu:
             images = Variable(images).cuda()
             labels = gender_labels.cuda()
-        outputs,_ = cnn(images)
+        outputs,_,_ = cnn(images)
         _,pred = torch.max(outputs.data,1)
         num_sample += labels.size(0)
         num_correct += (pred == labels).sum()
@@ -66,6 +66,9 @@ val_data = gender_race_dataset("val_labels_all.csv", root, test_transform)
 val_loader = torch.utils.data.DataLoader(val_data,
 	batch_size=batch_size,shuffle=False)
 
+test_data = gender_race_dataset("test_labels_all.csv", 'UTKFace/test', test_transform)
+test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size,shuffle=False)
+
 if model == "cnn":
     print("Using CNN")
 
@@ -74,7 +77,7 @@ if model == "cnn":
         cnn.cuda()
     optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
-    SAVED_MODEL_PATH = 'cnn_model_best.pth.tar'
+    SAVED_MODEL_PATH = 'cnn_model_best_SGD_adversary.pth.tar'
     checkpoint = torch.load(SAVED_MODEL_PATH)
     cnn.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
@@ -85,7 +88,8 @@ if model == "cnn":
 
     print("best val_acc = ", best_val_acc)
 
-    val_acc = generate_predictions(cnn,val_loader)
+#     val_acc = generate_predictions(cnn,val_loader)
+    test_acc = generate_predictions(cnn, test_loader)
     
 elif model == "vgg":
     print("Using VGG")
