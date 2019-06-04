@@ -17,6 +17,7 @@ import os
 from CNN_architecture import CNN, MyVgg
 from custom_dataset_loader import gender_race_dataset
 import pandas as pd
+import cv2
 
 # TODO: We might need to move grad_cam.py or a copy of it into the main CS231N_race_and_facial_recognition folder
 from grad_cam import (
@@ -30,14 +31,14 @@ from grad_cam import (
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
-model = "cnn"
-outfile = "predictions_adversarial_cnn_best.csv"
+model = "vgg"
+outfile = "predictions_adversarial_vgg_best_gradcam.csv"
 
 ##########################
 # For Grad Cam
 def get_classtable():
     classes = []
-    with open("grad-cam-pytorch/samples/gender_labels.txt") as lines:
+    with open("samples/gender_labels.txt") as lines:
         for line in lines:
             classes.append(line)
     return classes
@@ -79,7 +80,7 @@ def generate_predictions(cnn,data_loader):
         if use_gpu:
             images = Variable(images).cuda()
             labels = gender_labels.cuda()
-        outputs,_,_ = cnn(images)
+        outputs,_ = cnn(images) #need _,_ when using cnn
         _,pred = torch.max(outputs.data,1)
         num_sample += labels.size(0)
         num_correct += (pred == labels).sum()
@@ -127,8 +128,8 @@ if model == "cnn":
 
     print("best val_acc = ", best_val_acc)
 
-#     val_acc = generate_predictions(cnn,val_loader)
-    test_acc = generate_predictions(cnn, test_loader)
+    val_acc = generate_predictions(cnn,val_loader)
+#     test_acc = generate_predictions(cnn, test_loader)
     
 elif model == "vgg":
     print("Using VGG")
@@ -158,7 +159,9 @@ elif model == "vgg":
 
     print("best val_acc = ", best_val_acc)
 
-    val_acc = generate_predictions(myVGG,val_loader)
+#     val_acc = generate_predictions(myVGG,val_loader)
+#     test_acc = generate_predictions(myVGG, test_loader)
+#     val_acc = generate_predictions(myVGG,val_loader)
     
     #########################
     # GRAD CAM
@@ -192,15 +195,18 @@ elif model == "vgg":
     images = torch.stack(images)  #.to(device)
 
     # Here we choose the last convolution layer TODO: This will likely be wrong!
-    target_layer = "exit_flow.conv4"
+    target_layers = ['myModel.features.28']
     target_class = 1 
-
+    
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # run grad cam on all images!
     gcam = GradCAM(model=myVGG)
+    images = images.cuda()
     probs, ids = gcam.forward(images)
     ids_ = torch.LongTensor([[target_class]] * len(images))  #.to(device)
+    ids_ = ids_.cuda()
     gcam.backward(ids=ids_)
-
+    output_dir = "results"
     for target_layer in target_layers:
         print("Generating Grad-CAM @{}".format(target_layer))
 
@@ -213,7 +219,7 @@ elif model == "vgg":
                 target_class = 0
                 
             save_gradcam(
-                filename=osp.join(
+                filename=os.path.join(
                     output_dir,
                     "{}-{}-gradcam-{}-{}.png".format(
                         j, "VGG16Adv", target_layer, classes[target_class]
@@ -222,3 +228,4 @@ elif model == "vgg":
                 gcam=regions[j, 0],
                 raw_image=raw_images[j],
             )
+
