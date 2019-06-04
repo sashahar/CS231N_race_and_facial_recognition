@@ -17,7 +17,8 @@ import os
 from CNN_architecture import CNN, MyVgg
 from custom_dataset_loader import gender_race_dataset
 import pandas as pd
-
+import sys
+sys.path.insert(0, '/grad-cam-pytorch')
 # TODO: We might need to move grad_cam.py or a copy of it into the main CS231N_race_and_facial_recognition folder
 from grad_cam import (
     BackPropagation,
@@ -31,7 +32,7 @@ use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
 model = "vgg"
-outfile = "predictions_adversarial_vgg_best.csv"
+outfile = "predictions_adversarial_vgg_best_gradcam.csv"
 
 ##########################
 # For Grad Cam
