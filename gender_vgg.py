@@ -121,72 +121,123 @@ def train_model(criterion, adversary, nn_criterion, nn_optimizer, num_epochs=10)
     for epoch in range(num_epochs):
         print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
         #print('Learning Rate for this epoch: {}'.format(learning_rate))
+# <<<<<<< HEAD
+
+		vgg16.train(True)
+
+        #for gender_labels, race_labels, img_names, images in train_loader:
+		for i,(labels, race_labels, img_names, images) in enumerate(train_loader):
+			images = Variable(images)
+			labels = Variable(labels)
+			if use_gpu:
+				images,labels = Variable(images.cuda()),Variable(labels.cuda())
+
+			optimizer.zero_grad()
+			pred_labels = vgg16(images)
+			loss = criterion(pred_labels,labels)
+
+			loss.backward()
+			optimizer.step()
+			torch.cuda.empty_cache()
+
+			if (i+1) % 5 == 0:
+				print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
+					%(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
+
+		vgg16.train(False)
+		vgg16.eval()
+		if epoch % 5 ==0 or epoch == num_epochs-1:
+			train_acc = check_acc(vgg16,train_loader)
+			train_acc_history.append(train_acc)
+            #train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+			#print(train_msg)
+            #epoch_history.append(train_msg)
+
+			val_acc = check_acc(vgg16,test_loader)
+			val_acc_history.append(val_acc)
+			val_msg = 'Validation accuracy for epoch {}: {} '.format(epoch + 1,val_acc)
+            #print(val_msg)
+            #epoch_history.append(val_msg)
+			#plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
+			best_val_acc = max(val_acc,best_val_acc)
+
+			is_best = val_acc > best_val_acc
+			save_checkpoint(
+				{'epoch':epoch+1,
+				'state_dict':vgg16.state_dict(),
+				'best_val_acc':best_val_acc,
+				'optimizer':optimizer.state_dict()},is_best)
+	np.savetxt("training_log_vgg_v3.out", epoch_history, fmt='%s')
+
+train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=10)
+# =======
         
-        i = 0
-        for gender_labels, race_labels, img_names, images in train_loader:
-            gender_labels = torch.from_numpy(np.asarray(gender_labels))
-            race_labels = torch.from_numpy(np.asarray(race_labels))
-            images = Variable(images)
-            labels = Variable(gender_labels)
-            if use_gpu:
-                images,labels, race_labels = Variable(images.cuda()),Variable(labels.cuda()), Variable(race_labels.cuda())
+#         i = 0
+#         for gender_labels, race_labels, img_names, images in train_loader:
+#             gender_labels = torch.from_numpy(np.asarray(gender_labels))
+#             race_labels = torch.from_numpy(np.asarray(race_labels))
+#             images = Variable(images)
+#             labels = Variable(gender_labels)
+#             if use_gpu:
+#                 images,labels, race_labels = Variable(images.cuda()),Variable(labels.cuda()), Variable(race_labels.cuda())
 
-            optimizer.zero_grad()
+#             optimizer.zero_grad()
 
-            pred_labels, pen_weights = myVGG(images)
-            #######################################################
-            nn_pred_labels = adversary(pen_weights)
-            nn_loss = nn_criterion(nn_pred_labels, race_labels)
-            vgg_loss = criterion(pred_labels,labels)
-            loss = vgg_loss - alpha*nn_loss
-            loss.backward(retain_graph = True)
-            optimizer.step()
+#             pred_labels, pen_weights = myVGG(images)
+#             #######################################################
+#             nn_pred_labels = adversary(pen_weights)
+#             nn_loss = nn_criterion(nn_pred_labels, race_labels)
+#             vgg_loss = criterion(pred_labels,labels)
+#             loss = vgg_loss - alpha*nn_loss
+#             loss.backward(retain_graph = True)
+#             optimizer.step()
             
-            #loss for adversary model
-            nn_optimizer.zero_grad()
-            nn_loss.backward()
-            nn_optimizer.step()
+#             #loss for adversary model
+#             nn_optimizer.zero_grad()
+#             nn_loss.backward()
+#             nn_optimizer.step()
             
-            del images, labels, pred_labels, nn_pred_labels, race_labels
-            torch.cuda.empty_cache()
-            #######################################################
+#             del images, labels, pred_labels, nn_pred_labels, race_labels
+#             torch.cuda.empty_cache()
+#             #######################################################
 
-            if (i+1) % 5 == 0:
-# 				print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
-# 					%(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
-                print ('Epoch [%d/%d], Iter [%d/%d] Vgg Loss: %.4f Adversary Loss: %.4f'
-                    %(epoch+1, num_epochs, i+1, len(train_data)//50, vgg_loss, nn_loss))
-            i = i + 1
+#             if (i+1) % 5 == 0:
+# # 				print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f'
+# # 					%(epoch+1, num_epochs, i+1, len(train_data)//50, loss.data))
+#                 print ('Epoch [%d/%d], Iter [%d/%d] Vgg Loss: %.4f Adversary Loss: %.4f'
+#                     %(epoch+1, num_epochs, i+1, len(train_data)//50, vgg_loss, nn_loss))
+#             i = i + 1
 
-        if True:
-            if epoch % 5 ==0 or epoch == num_epochs-1:
-                learning_rate = learning_rate * 0.2
+#         if True:
+#             if epoch % 5 ==0 or epoch == num_epochs-1:
+#                 learning_rate = learning_rate * 0.2
 
-            train_acc = check_acc(myVGG,train_loader)
-            train_acc_history.append(train_acc)
-            train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
-            print(train_msg)
-            epoch_history.append(train_msg)
-#             print('Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc))
+#             train_acc = check_acc(myVGG,train_loader)
+#             train_acc_history.append(train_acc)
+#             train_msg = 'Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc)
+#             print(train_msg)
+#             epoch_history.append(train_msg)
+# #             print('Train accuracy for epoch {}: {} '.format(epoch + 1,train_acc))
 
-            val_acc = check_acc(myVGG,test_loader)
-            val_acc_history.append(val_acc)
-            val_msg = 'Validation accuracy for epoch {} : {} '.format(epoch + 1,val_acc)
-            print(val_msg)
-#             print('Validation accuracy for epoch {} : {} '.format(epoch + 1,val_acc))
-            epoch_history.append(val_msg)
-            # plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
-            is_best = val_acc > best_val_acc
-            best_val_acc = max(val_acc,best_val_acc)      
+#             val_acc = check_acc(myVGG,test_loader)
+#             val_acc_history.append(val_acc)
+#             val_msg = 'Validation accuracy for epoch {} : {} '.format(epoch + 1,val_acc)
+#             print(val_msg)
+# #             print('Validation accuracy for epoch {} : {} '.format(epoch + 1,val_acc))
+#             epoch_history.append(val_msg)
+#             # plot_performance_curves(train_acc_history,val_acc_history,epoch_history)
+#             is_best = val_acc > best_val_acc
+#             best_val_acc = max(val_acc,best_val_acc)      
         
-        is_best = val_acc > best_val_acc
-        save_checkpoint(
-                {'epoch':epoch+1,
-                'state_dict':myVGG.state_dict(),
-                'best_val_acc':best_val_acc,
-                'optimizer':optimizer.state_dict()},is_best)
+#         is_best = val_acc > best_val_acc
+#         save_checkpoint(
+#                 {'epoch':epoch+1,
+#                 'state_dict':myVGG.state_dict(),
+#                 'best_val_acc':best_val_acc,
+#                 'optimizer':optimizer.state_dict()},is_best)
             
-        np.savetxt("training_log_vgg.out", epoch_history, fmt='%s')
+#         np.savetxt("training_log_vgg.out", epoch_history, fmt='%s')
 
 
-train_model(criterion, adversary, nn_criterion, nn_optimizer, num_epochs=30)
+# train_model(criterion, adversary, nn_criterion, nn_optimizer, num_epochs=30)
+# >>>>>>> bfda614bfa49c136ae2247ec120ecf75bb5e9642
