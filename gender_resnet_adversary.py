@@ -11,6 +11,7 @@ from torch.utils.data import sampler
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
 
+import cv2
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import shutil
@@ -35,6 +36,46 @@ test_transform = transforms.Compose([
 	transforms.CenterCrop(224),
 	transforms.ToTensor()
 	])
+
+from grad_cam import (
+    BackPropagation,
+    Deconvnet,
+    GradCAM,
+    GuidedBackPropagation,
+    occlusion_sensitivity,
+)
+
+##########################
+# For Grad Cam
+def get_classtable():
+    classes = []
+    with open("samples/gender_labels.txt") as lines:
+        for line in lines:
+            classes.append(line)
+    return classes
+
+def preprocess(image_path):
+    raw_image = cv2.imread(image_path)
+    raw_image = cv2.resize(raw_image, (224,) * 2)
+    image = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )(raw_image[..., ::-1].copy())
+    return image, raw_image
+
+def save_gradcam(filename, gcam, raw_image, paper_cmap=False):
+    gcam = gcam.cpu().numpy()
+    cmap = cm.jet_r(gcam)[..., :3] * 255.0
+    if paper_cmap:
+        alpha = gcam[..., None]
+        gcam = alpha * cmap + (1 - alpha) * raw_image
+    else:
+        gcam = (cmap.astype(np.float) + raw_image.astype(np.float)) / 2
+    cv2.imwrite(filename, np.uint8(gcam))
+
+###################
 
 def save_checkpoint(state,is_best,file_name = 'resnet_checkpoint.pth.tar'):
 	torch.save(state,file_name)
@@ -116,7 +157,72 @@ def generate_predictions(cnn,data_loader):
 
     df = pd.DataFrame(np.concatenate((np.expand_dims(filenames, axis = 1), np.expand_dims(correct, axis=1), np.expand_dims(preds, axis=1), np.expand_dims(races, axis = 1)), axis =1), columns = ["Filenames", "label", "pred", "race"])
     df.to_csv(outfile, header=True)
+    
+    #########################
+    # GRAD CAM
+    classes = get_classtable()
+    
+    #Get image paths
+    image_paths = []
+    q = 0
+    for female_file in os.listdir(os.path.join(root, "female")):
+        image_paths.append(os.path.join(root, os.path.join("female",str(female_file))))
+        q += 1
+        if (q == 10):
+            break
+    q = 0 
+    for male_file in os.listdir(os.path.join(root, "male")):
+        image_paths.append(os.path.join(root, os.path.join("male",str(male_file))))
+        q += 1
+        if (q == 10):
+            break
+    print(len(image_paths))
+    
+    # preprocess each image
+    images = []
+    raw_images = []
+    print("Images:")
+    for i, image_path in enumerate(image_paths):
+        print("\t#{}: {}".format(i, image_path))
+        image, raw_image = preprocess(image_path)
+        images.append(image)
+        raw_images.append(raw_image)
+    images = torch.stack(images)  #.to(device)
 
+    # Here we choose the last convolution layer TODO: This will likely be wrong!
+    target_layer = "exit_flow.conv4"
+    target_class = 1 
+
+    # run grad cam on all images!
+    gcam = GradCAM(model=cnn)
+    probs, ids = gcam.forward(images)
+    ids_ = torch.LongTensor([[target_class]] * len(images))  #.to(device)
+    gcam.backward(ids=ids_)
+
+    for target_layer in target_layers:
+        print("Generating Grad-CAM @{}".format(target_layer))
+
+        # Grad-CAM
+        regions = gcam.generate(target_layer=target_layer)
+
+        for j in range(len(images)):
+            # Make the target class male. The second half of the images are all of men. Please excuse the hack. 
+            if j > (len(images)/2):
+                target_class = 0
+                
+            save_gradcam(
+                filename=osp.join(
+                    output_dir,
+                    "{}-{}-gradcam-{}-{}.png".format(
+                        j, "VGG16Adv", target_layer, classes[target_class]
+                    ),
+                ),
+                gcam=regions[j, 0],
+                raw_image=raw_images[j],
+            )
+
+     
+    
 def train_model(model, criterion, adversary, nn_criterion, learning_rate, num_epochs=35):
     since = time.time()
     
