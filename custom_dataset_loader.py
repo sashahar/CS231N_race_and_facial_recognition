@@ -5,6 +5,10 @@ import numpy as np
 from PIL import Image
 import os
 
+#Custom Pytorch dataloader used to keep track of gender, race, age and image name for each image tensor
+#Use the tutorials and examples at the following Github link for guidance: 
+#https://github.com/utkuozbulak/pytorch-custom-dataset-examples
+
 class gender_race_dataset(Dataset):
     def __init__(self, data_path, path_to_img, transf = None):
         

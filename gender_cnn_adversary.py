@@ -101,7 +101,6 @@ def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer
 #     learning_rate = 0.001
 #     learning_rate = np.logspace(-6,-2, num=15)
 #     learning_rate = np.logspace(-3,-2, num=8)
-#     learning_rate = [1.389e-03, 5e-4]
     best_val_acc = 0.0
 #     alpha = 1.0
 #     p_vals = np.array([0.5])

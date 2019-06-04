@@ -23,7 +23,6 @@ if use_gpu:
     print(torch.cuda.device_count())
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# 	for images,labels in data_loader:
 def check_acc(model,data_loader):
     num_correct,num_sample = 0, 0
     for gender_labels, race_labels, img_names, images in data_loader:
@@ -104,7 +103,7 @@ epoch_history = []
 learning_rate = 0.001
 best_val_acc = 0.0
 
-#def train_model(vgg16, criterion, optimizer, adversary, nn_criterion, nn_optimizer, num_epochs=10):
+
 def train_model(criterion, adversary, nn_criterion, nn_optimizer, num_epochs=10):
     best_val_acc = 0.0
     alpha = 1.0
@@ -116,7 +115,6 @@ def train_model(criterion, adversary, nn_criterion, nn_optimizer, num_epochs=10)
     optimizer = torch.optim.SGD(myVGG.parameters(), lr=learning_rate, momentum=0.9)
     
     print("Accuracy before training: ", check_acc(myVGG, test_loader))
-#     print("Accuracy before training: ", check_acc(vgg16, test_loader))
     
     for epoch in range(num_epochs):
         print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
