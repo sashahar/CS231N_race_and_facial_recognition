@@ -17,54 +17,14 @@ import os
 from CNN_architecture import CNN, MyVgg
 from custom_dataset_loader import gender_race_dataset
 import pandas as pd
-import cv2
 
-# TODO: We might need to move grad_cam.py or a copy of it into the main CS231N_race_and_facial_recognition folder
-from grad_cam import (
-    BackPropagation,
-    Deconvnet,
-    GradCAM,
-    GuidedBackPropagation,
-    occlusion_sensitivity,
-)
 
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
 model = "vgg"
-outfile = "predictions_adversarial_vgg_best_gradcam.csv"
+outfile = "predictions_adversarial_vgg_best.csv"
 
-##########################
-# For Grad Cam
-def get_classtable():
-    classes = []
-    with open("samples/gender_labels.txt") as lines:
-        for line in lines:
-            classes.append(line)
-    return classes
-
-def preprocess(image_path):
-    raw_image = cv2.imread(image_path)
-    raw_image = cv2.resize(raw_image, (224,) * 2)
-    image = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )(raw_image[..., ::-1].copy())
-    return image, raw_image
-
-def save_gradcam(filename, gcam, raw_image, paper_cmap=False):
-    gcam = gcam.cpu().numpy()
-    cmap = cm.jet_r(gcam)[..., :3] * 255.0
-    if paper_cmap:
-        alpha = gcam[..., None]
-        gcam = alpha * cmap + (1 - alpha) * raw_image
-    else:
-        gcam = (cmap.astype(np.float) + raw_image.astype(np.float)) / 2
-    cv2.imwrite(filename, np.uint8(gcam))
-
-###################
 
 def generate_predictions(cnn,data_loader):
     preds = np.array([])
@@ -154,70 +114,3 @@ elif model == "vgg":
 
 #     val_acc = generate_predictions(myVGG,val_loader)
     test_acc = generate_predictions(myVGG, test_loader)
-    
-    #########################
-    # GRAD CAM
-    classes = get_classtable()
-    
-    #Get image paths
-    image_paths = []
-    q = 0
-    for female_file in os.listdir(os.path.join(root, "female")):
-        image_paths.append(os.path.join(root, os.path.join("female",str(female_file))))
-        q += 1
-        if (q == 10):
-            break
-    q = 0 
-    for male_file in os.listdir(os.path.join(root, "male")):
-        image_paths.append(os.path.join(root, os.path.join("male",str(male_file))))
-        q += 1
-        if (q == 10):
-            break
-    print(len(image_paths))
-    
-    # preprocess each image
-    images = []
-    raw_images = []
-    print("Images:")
-    for i, image_path in enumerate(image_paths):
-        print("\t#{}: {}".format(i, image_path))
-        image, raw_image = preprocess(image_path)
-        images.append(image)
-        raw_images.append(raw_image)
-    images = torch.stack(images)  #.to(device)
-
-    # Here we choose the last convolution layer TODO: This will likely be wrong!
-    target_layers = ['myModel.features.28']
-    target_class = 1 
-    
-#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # run grad cam on all images!
-    gcam = GradCAM(model=myVGG)
-    images = images.cuda()
-    probs, ids = gcam.forward(images)
-    ids_ = torch.LongTensor([[target_class]] * len(images))  #.to(device)
-    ids_ = ids_.cuda()
-    gcam.backward(ids=ids_)
-    output_dir = "results"
-    for target_layer in target_layers:
-        print("Generating Grad-CAM @{}".format(target_layer))
-
-        # Grad-CAM
-        regions = gcam.generate(target_layer=target_layer)
-
-        for j in range(len(images)):
-            # Make the target class male. The second half of the images are all of men. Please excuse the hack. 
-            if j > (len(images)/2):
-                target_class = 0
-                
-            save_gradcam(
-                filename=os.path.join(
-                    output_dir,
-                    "{}-{}-gradcam-{}-{}.png".format(
-                        j, "VGG16Adv", target_layer, classes[target_class]
-                    ),
-                ),
-                gcam=regions[j, 0],
-                raw_image=raw_images[j],
-            )
-

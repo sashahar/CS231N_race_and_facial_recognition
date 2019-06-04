@@ -14,7 +14,10 @@ import shutil
 import numpy as np
 import torchvision.models as models
 
-#Notes: Add layers to the CNN architecture, play with number of filters and kernel size, etc. 
+#Python file that implements the CNN, Adversary, Resnet and VGG architecture. Created a wrapper class for VGG and Resnet in order to obtain the output from intermediate layers. 
+#Used the following PyTorch discussion for finding a way to retrieve intermediate outputs for Resnet and VGG: 
+#https://discuss.pytorch.org/t/accessing-intermediate-layers-of-a-pretrained-network-forward/12113
+
 class CNN(nn.Module):
     def __init__(self, p=0.5):
         super(CNN,self).__init__()

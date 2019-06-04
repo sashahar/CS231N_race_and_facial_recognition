@@ -35,8 +35,8 @@ class _BaseWrapper(object):
         Simple classification
         """
         self.model.zero_grad()
-        print("in FORWARD ", image)
-        self.logits = self.model(image)
+#         print("in FORWARD ", image)
+        self.logits,_ = self.model(image)
         self.probs = F.softmax(self.logits, dim=1)
         return self.probs.sort(dim=1, descending=True)
 
@@ -128,7 +128,7 @@ class GradCAM(_BaseWrapper):
         def forward_hook(key):
             def forward_hook_(module, input, output):
                 # Save featuremaps
-                self.fmap_pool[key] = output.detach()
+                self.fmap_pool[key] = output[1].detach()
 
             return forward_hook_
 
@@ -146,6 +146,7 @@ class GradCAM(_BaseWrapper):
                 self.handlers.append(module.register_backward_hook(backward_hook(name)))
 
     def _find(self, pool, target_layer):
+#         print(pool.keys())
         if target_layer in pool.keys():
             return pool[target_layer]
         else:

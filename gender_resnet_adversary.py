@@ -19,7 +19,6 @@ import numpy as np
 from custom_dataset_loader import gender_race_dataset
 from CNN_architecture import NN, MyResnet
 import os
-#from gender_vgg import check_acc
 
 use_gpu = torch.cuda.is_available()
 if use_gpu:
@@ -126,12 +125,6 @@ criterion = nn.CrossEntropyLoss()
 adversary = NN(1000)
 adversary = adversary.to(device)
 nn_criterion = nn.CrossEntropyLoss()
-
-# Observe that only parameters of final layer are being optimized as
-# opposed to before.
-
-# Decay LR by a factor of 0.1 every 7 epochs
-# exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 dataloaders = {"train": train_loader, "val": test_loader}
 
@@ -330,6 +323,7 @@ learning_rates = [0.002]
 for lr in learning_rates:
     print("Testing learning rate ", lr)
     model = train_model(model, criterion, adversary, nn_criterion, lr)
-    
+
+#generate validation and test predictions on the best model
 generate_predictions(model,test_loader, "resnet_val.csv")
 generate_predictions(model,test_results_loader, "resnet_test.csv")
