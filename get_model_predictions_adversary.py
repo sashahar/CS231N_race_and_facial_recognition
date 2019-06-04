@@ -22,8 +22,8 @@ import pandas as pd
 use_gpu = torch.cuda.is_available()
 
 #which model do you want the predictions for?
-model = "cnn"
-outfile = "predictions_adversarial_cnn_best.csv"
+model = "vgg"
+outfile = "predictions_adversarial_vgg_best.csv"
 
 
 def generate_predictions(cnn,data_loader):
@@ -40,7 +40,7 @@ def generate_predictions(cnn,data_loader):
         if use_gpu:
             images = Variable(images).cuda()
             labels = gender_labels.cuda()
-        outputs,_,_ = cnn(images)
+        outputs,_ = cnn(images) #need _,_ when using cnn
         _,pred = torch.max(outputs.data,1)
         num_sample += labels.size(0)
         num_correct += (pred == labels).sum()
@@ -88,8 +88,8 @@ if model == "cnn":
 
     print("best val_acc = ", best_val_acc)
 
-#     val_acc = generate_predictions(cnn,val_loader)
-    test_acc = generate_predictions(cnn, test_loader)
+    val_acc = generate_predictions(cnn,val_loader)
+#     test_acc = generate_predictions(cnn, test_loader)
     
 elif model == "vgg":
     print("Using VGG")
@@ -119,4 +119,5 @@ elif model == "vgg":
 
     print("best val_acc = ", best_val_acc)
 
-    val_acc = generate_predictions(myVGG,val_loader)
+#     val_acc = generate_predictions(myVGG,val_loader)
+    test_acc = generate_predictions(myVGG, test_loader)

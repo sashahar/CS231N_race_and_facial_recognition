@@ -1,5 +1,5 @@
 import pandas as pd
-prediction_data = pd.read_csv("adversarial_cnn_v1.csv")
+prediction_data = pd.read_csv("predictions_adversarial_vgg_best.csv")
 white = prediction_data[prediction_data.race == 0]
 nonwhite = prediction_data[prediction_data.race != 0]
 

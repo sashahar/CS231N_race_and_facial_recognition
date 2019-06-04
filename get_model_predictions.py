@@ -73,7 +73,7 @@ if model == "cnn":
         cnn.cuda()
     optimizer = torch.optim.SGD(cnn.parameters(),lr=0.001,momentum=0.9)
 
-    SAVED_MODEL_PATH = 'cnn_model_best.pth.tar'
+    SAVED_MODEL_PATH = 'cnn_model_best_SGD_adversary.pth.tar'
     checkpoint = torch.load(SAVED_MODEL_PATH)
     cnn.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
