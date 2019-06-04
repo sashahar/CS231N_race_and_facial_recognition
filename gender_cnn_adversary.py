@@ -43,7 +43,7 @@ def plot_performance_curves(train_acc_history,val_acc_history,epoch_history):
 def save_checkpoint(state,is_best,file_name = 'cnn_checkpoint.pth.tar'):
 	torch.save(state,file_name)
 	if is_best:
-		shutil.copyfile(file_name,'cnn_model_best_Adam_adversary.pth.tar')
+		shutil.copyfile(file_name,'cnn_model_best_SGD_adversary.pth.tar')
 
 train_transform = transforms.Compose([
 	transforms.Resize(256),
@@ -106,11 +106,11 @@ def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer
 #     alpha = 1.0
 #     p_vals = np.array([0.5])
     p = 0.5
-    learning_rate = [0.001]
+    learning_rate = [0.0026826957952797246] #0.001 for Adam
     alpha = [0.9]
 #     alpha = np.array([0.9, 1.0])
 
-    for layer in range(2,3):
+    for layer in range(1,2):
         for lr in learning_rate:
             for a in alpha:
                 layer_msg = 'Layer for this model: {}'.format(layer)
@@ -131,10 +131,10 @@ def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer
                 adversary.cuda()
 
                 for epoch in range(num_epochs):
-#                     optimizer = torch.optim.SGD(cnn.parameters(),lr=lr,momentum=0.9)
-#                     nn_optimizer = torch.optim.SGD(adversary.parameters(),lr=lr,momentum=0.9)
-                    optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
-                    nn_optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
+                    optimizer = torch.optim.SGD(cnn.parameters(),lr=lr,momentum=0.9)
+                    nn_optimizer = torch.optim.SGD(adversary.parameters(),lr=lr,momentum=0.9)
+#                     optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
+#                     nn_optimizer = torch.optim.Adam(cnn.parameters(), lr=lr, betas=(0.9, 0.999))
 
                     print('Starting epoch %d / %d' % (epoch + 1, num_epochs))
         #             print('Learning Rate for this epoch: {}'.format(learning_rate))
@@ -203,7 +203,7 @@ def train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer
                             'best_val_acc':best_val_acc,
                             'optimizer':optimizer.state_dict()},is_best)
                 
-                    np.savetxt("training_log_cnn_Adam.out", epoch_history, fmt='%s')
+                    np.savetxt("training_log_cnn_SGD.out", epoch_history, fmt='%s')
 
 
 train_model(cnn, adversary, criterion, nn_criterion, optimizer, nn_optimizer, 100)       
