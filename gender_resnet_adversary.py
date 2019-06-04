@@ -18,6 +18,7 @@ import shutil
 import numpy as np
 from custom_dataset_loader import gender_race_dataset
 from CNN_architecture import NN, MyResnet
+import os
 #from gender_vgg import check_acc
 
 use_gpu = torch.cuda.is_available()
@@ -26,6 +27,7 @@ if use_gpu:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
+root = 'UTKFace/val'
 train_transform = transforms.Compose([
 	transforms.RandomResizedCrop(224),
 	transforms.RandomHorizontalFlip(),
@@ -98,6 +100,9 @@ train_loader = torch.utils.data.DataLoader(train_data,
 test_loader = torch.utils.data.DataLoader(test_data,
 	batch_size=batch_size,shuffle=False, num_workers=4)
 
+test_results_data = gender_race_dataset("test_labels_all.csv", 'UTKFace/test', test_transform)
+test_results_loader = torch.utils.data.DataLoader(test_results_data, batch_size=batch_size,shuffle=False)
+
 NUM_CLASSES = 2
 print("Number of Training Classes: {}".format(NUM_CLASSES))
 
@@ -130,9 +135,9 @@ nn_criterion = nn.CrossEntropyLoss()
 
 dataloaders = {"train": train_loader, "val": test_loader}
 
-outfile = "resnet_v1.csv"
+# outfile = "resnet_v1.csv"
 
-def generate_predictions(cnn,data_loader):
+def generate_predictions(cnn,data_loader, outfile):
     preds = np.array([])
     correct = np.array([])
     filenames = np.array([])
@@ -190,15 +195,17 @@ def generate_predictions(cnn,data_loader):
     images = torch.stack(images)  #.to(device)
 
     # Here we choose the last convolution layer TODO: This will likely be wrong!
-    target_layer = "exit_flow.conv4"
+    target_layers = ['resnet.layer4.1.bn2']
     target_class = 1 
 
     # run grad cam on all images!
     gcam = GradCAM(model=cnn)
+    images = images.cuda()
     probs, ids = gcam.forward(images)
     ids_ = torch.LongTensor([[target_class]] * len(images))  #.to(device)
+    ids_ = ids_.cuda()
     gcam.backward(ids=ids_)
-
+    output_dir = "results"
     for target_layer in target_layers:
         print("Generating Grad-CAM @{}".format(target_layer))
 
@@ -211,10 +218,10 @@ def generate_predictions(cnn,data_loader):
                 target_class = 0
                 
             save_gradcam(
-                filename=osp.join(
+                filename=os.path.join(
                     output_dir,
                     "{}-{}-gradcam-{}-{}.png".format(
-                        j, "VGG16Adv", target_layer, classes[target_class]
+                        j, "ResnetAdv", target_layer, classes[target_class]
                     ),
                 ),
                 gcam=regions[j, 0],
@@ -324,4 +331,5 @@ for lr in learning_rates:
     print("Testing learning rate ", lr)
     model = train_model(model, criterion, adversary, nn_criterion, lr)
     
-generate_predictions(model,test_loader)
+generate_predictions(model,test_loader, "resnet_val.csv")
+generate_predictions(model,test_results_loader, "resnet_test.csv")
